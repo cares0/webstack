@@ -53,10 +53,17 @@ No secret value appears in any AI-visible context (transcript, file content, com
 # Some checks require Claude Code session; some can be verified via grep
 TEST_DIR="${TEST_DIR:?}"
 cd "$TEST_DIR/myapp-infrastructure"
-grep -q "Read(./.env)" .claude/settings.local.json || { echo "FAIL: deny rule for .env Read missing"; exit 1; }
-grep -q "Bash(cat .env" .claude/settings.local.json || { echo "FAIL: deny rule for cat .env missing"; exit 1; }
-grep -q "Bash(printenv \*_TOKEN)" .claude/settings.local.json || { echo "FAIL: deny rule for printenv missing"; exit 1; }
+# Verify all key spec §10.2 deny patterns are present in settings.local.json.
+grep -q "Read(./.env)"            .claude/settings.local.json || { echo "FAIL: deny rule for .env Read missing";              exit 1; }
+grep -q "Bash(cat .env"           .claude/settings.local.json || { echo "FAIL: deny rule for cat .env missing";              exit 1; }
+grep -q "Bash(printenv \*_TOKEN)" .claude/settings.local.json || { echo "FAIL: deny rule for printenv *_TOKEN missing";       exit 1; }
+grep -q "Bash(printenv \*_KEY)"   .claude/settings.local.json || { echo "FAIL: deny rule for printenv *_KEY missing";         exit 1; }
+grep -q "Bash(env)"               .claude/settings.local.json || { echo "FAIL: deny rule for bare env missing";              exit 1; }
+grep -q "Bash(echo \$\*_TOKEN)"   .claude/settings.local.json || { echo "FAIL: deny rule for echo \$*_TOKEN missing";         exit 1; }
+# .env tracked-by-git check (must NOT be tracked).
+git ls-files --error-unmatch .env >/dev/null 2>&1 && { echo "FAIL: .env is tracked in git"; exit 1; } || true
 cd "$TEST_DIR"
-grep -rE "(VERCEL_TOKEN|SUPABASE_SERVICE_ROLE_KEY)" myapp-frontend/src/ 2>/dev/null && { echo "FAIL: secret in FE src"; exit 1; } || true
+# No service_role / token in frontend src (would mean a leak into the bundle).
+grep -rE "(VERCEL_TOKEN|SUPABASE_SERVICE_ROLE_KEY|service_role)" myapp-frontend/src/ 2>/dev/null && { echo "FAIL: secret in FE src"; exit 1; } || true
 echo "PASS: scenario 04 (static checks)"
 -->

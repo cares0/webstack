@@ -15,7 +15,7 @@ Mock terraform:
 # The mock recognizes specific arguments and emits expected JSON or text.
 # See tests/fixtures/mock-terraform.sh (Tier 2; for 1차, you can inline or skip).
 
-# For 1차 1차 manual run: skip terraform actually being called, follow flow up to confirmation gate, then say "cancel".
+# For 1차 manual run: skip terraform actually being called, follow flow up to confirmation gate, then say "cancel".
 ```
 
 ## Steps
@@ -60,7 +60,24 @@ set -a && source .env && set +a
 - No `terraform apply` runs without explicit confirmation.
 - Manifest unchanged on cancel.
 
-<!-- script: 03-infra-flow
-# This scenario primarily tests the gating logic; full E2E requires real or mocked providers.
-echo "Scenario 03 is interactive; verify confirmation gate behavior manually."
+<!-- script: 03-infra-static-assertions
+# Static post-conditions verifiable without a Claude Code session.
+# Interactive parts (the cancel-on-confirm gate) are verified manually.
+TEST_DIR="${TEST_DIR:?set TEST_DIR before sourcing}"
+cd "$TEST_DIR/myapp-infrastructure"
+# .env exists (the user filled it) and is gitignored.
+[ -f .env ] || { echo "FAIL: .env not present (was test setup skipped?)"; exit 1; }
+git check-ignore -q .env || { echo "FAIL: .env is not gitignored"; exit 1; }
+# .env.template is committed (the placeholder template), not .env itself.
+git ls-files --error-unmatch .env.template >/dev/null 2>&1 || { echo "FAIL: .env.template missing from index"; exit 1; }
+git ls-files --error-unmatch .env >/dev/null 2>&1 && { echo "FAIL: .env tracked in git"; exit 1; } || true
+# All variable declarations carrying tokens/keys/passwords have sensitive = true.
+grep -E "variable \"[a-zA-Z_]*(token|key|password)\"" -i variables.tf | while read line; do
+  varname=$(echo "$line" | sed -E 's/.*"([^"]+)".*/\1/')
+  awk -v v="$varname" '/^variable "/{name=$2;gsub(/[\"\{]/,"",name)} name==v && /sensitive *= *true/{found=1} END{exit found?0:1}' variables.tf || \
+    { echo "FAIL: variable '$varname' missing sensitive = true"; exit 1; }
+done
+# After cancel, no state file exists (apply did not run).
+[ ! -f terraform.tfstate ] || { echo "FAIL: terraform.tfstate present — apply ran when it should not have"; exit 1; }
+echo "PASS: scenario 03 (static checks)"
 -->
