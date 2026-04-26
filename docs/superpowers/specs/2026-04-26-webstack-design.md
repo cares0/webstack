@@ -601,9 +601,9 @@ repos:
   infrastructure: "myapp-infrastructure"
   
 infrastructure:
-  vercel_project_id: "<set after first /webstack:infra apply>"
+  vercel_project_url: "<set after first /webstack:infra apply>"
   oracle_compartment_id: "<set after first apply>"
-  supabase_project_ref: "<set after first apply>"
+  supabase_project_url: "<set after first apply>"
   
 last_phase:
   init: completed
@@ -810,15 +810,20 @@ contracts/<feature>.yaml (OpenAPI 3.1, feature P3)
 
 `infrastructure repo` 초기화 시:
 
-1. `infrastructure/.env.template` (commit 가능 — placeholder만):
+1. `infrastructure/.env.template` (commit 가능 — placeholder만, `TF_VAR_*` prefix는 Terraform이 변수를 자동 감지하기 위함):
+
    ```
-   VERCEL_TOKEN=
-   ORACLE_API_KEY=
-   ORACLE_FINGERPRINT=
-   ORACLE_TENANCY_OCID=
-   SUPABASE_SERVICE_ROLE_KEY=
-   SUPABASE_DB_PASSWORD=
-   SUPABASE_PROJECT_REF=
+   TF_VAR_vercel_token=
+   TF_VAR_oci_tenancy_ocid=
+   TF_VAR_oci_user_ocid=
+   TF_VAR_oci_fingerprint=
+   TF_VAR_oci_private_key_path=
+   TF_VAR_oci_region=
+   TF_VAR_oci_compartment_id=
+   TF_VAR_oci_ssh_public_key_path=
+   TF_VAR_supabase_access_token=
+   TF_VAR_supabase_organization_id=
+   TF_VAR_supabase_db_password=
    ```
 
 2. `infrastructure/.gitignore`에 차단 패턴:
@@ -983,19 +988,34 @@ SubAgent: "CLARIFICATION NEEDED: <question>"
 
 ```json
 {
-  "hooks": [
-    {
-      "type": "PreToolUse",
-      "matcher": {"tool": "Read", "path_glob": "**/.env*"},
-      "command": "echo 'Blocked: .env files are protected by webstack' && exit 1"
-    },
-    {
-      "type": "SessionStart",
-      "command": "test -f .webstack/manifest.yaml && cat .webstack/SETUP.md || true"
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/block_env_read.py" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/block_env_bash.py" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session_start.sh" }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+`path_glob` / `command_pattern` style matchers are NOT supported in Claude Code's hook schema — fine-grained file path / command pattern checks live in the helper scripts (`hooks/block_env_read.py`, `block_env_bash.py`) which read `tool_input` JSON from stdin and exit 2 with stderr to block. See those files for the actual deny patterns.
 
 ---
 

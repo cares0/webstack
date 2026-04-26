@@ -1237,29 +1237,29 @@ Output: tokens.json + theme.css + component-variants.md.
 
 ## ShadCN CSS variable mapping
 
-ShadCN uses HSL CSS variables in `:root` and `.dark`. Map our tokens:
+Modern ShadCN (post-late-2024 generator) emits OKLCH CSS variables in `:root` and `.dark`. Map our tokens:
 
 ```css
 :root {
-  --background: <neutral-50 in hsl>;
-  --foreground: <neutral-950 in hsl>;
-  --card: <neutral-50 in hsl>;
-  --card-foreground: <neutral-950 in hsl>;
-  --popover: <neutral-50 in hsl>;
-  --popover-foreground: <neutral-950 in hsl>;
-  --primary: <brand-600 in hsl>;
-  --primary-foreground: <neutral-50 in hsl>;
-  --secondary: <neutral-100 in hsl>;
-  --secondary-foreground: <neutral-900 in hsl>;
-  --muted: <neutral-100 in hsl>;
-  --muted-foreground: <neutral-500 in hsl>;
-  --accent: <neutral-100 in hsl>;
-  --accent-foreground: <neutral-900 in hsl>;
-  --destructive: <danger-600 in hsl>;
-  --destructive-foreground: <neutral-50 in hsl>;
-  --border: <neutral-200 in hsl>;
-  --input: <neutral-200 in hsl>;
-  --ring: <brand-600 in hsl>;
+  --background: <neutral-50 in oklch>;
+  --foreground: <neutral-950 in oklch>;
+  --card: <neutral-50 in oklch>;
+  --card-foreground: <neutral-950 in oklch>;
+  --popover: <neutral-50 in oklch>;
+  --popover-foreground: <neutral-950 in oklch>;
+  --primary: <brand-600 in oklch>;
+  --primary-foreground: <neutral-50 in oklch>;
+  --secondary: <neutral-100 in oklch>;
+  --secondary-foreground: <neutral-900 in oklch>;
+  --muted: <neutral-100 in oklch>;
+  --muted-foreground: <neutral-500 in oklch>;
+  --accent: <neutral-100 in oklch>;
+  --accent-foreground: <neutral-900 in oklch>;
+  --destructive: <danger-600 in oklch>;
+  --destructive-foreground: <neutral-50 in oklch>;
+  --border: <neutral-200 in oklch>;
+  --input: <neutral-200 in oklch>;
+  --ring: <brand-600 in oklch>;
   --radius: <radius-md>;
 }
 .dark { /* mirrored for dark mode */ }
@@ -2221,7 +2221,7 @@ Required sections:
 1. `## What ShadCN is (and isn't)` — 컴포넌트 라이브러리가 아니라 copy-paste 코드 컬렉션. Radix primitives + Tailwind. 사용자 코드베이스에 직접 들어감.
 2. `## Initial setup` — `npx shadcn@latest init` → components.json, lib/utils.ts, theme.css 생성. webstack init P4가 자동.
 3. `## components.json` — schema, style (default/new-york), tailwind config, baseColor, cssVariables (true), aliases.
-4. `## CSS variables theming` — :root + .dark. HSL format. webstack은 design-system/theme.css에서 생성하여 frontend repo로 복사.
+4. `## CSS variables theming` — :root + .dark. OKLCH format (current ShadCN convention since late 2024). webstack은 design-system/theme.css에서 생성하여 frontend repo로 복사.
 5. `## Variants via cva` — class-variance-authority. 예시: Button variants (primary/secondary/ghost/destructive/outline).
 6. `## Adding new components` — `npx shadcn add button` → components/ui/button.tsx 다운로드. 직접 수정 가능.
 7. `## Custom variants per webstack identity` — design-system-architect가 component-variants.md에 정의 → build-fe가 cva extend.
@@ -3697,13 +3697,13 @@ Bash for: `oklch` color computation via `python3` if needed.
 9. Set radius preset (sm=brutalist, md=default, lg=friendly).
 10. Set shadow preset (none/subtle/elevated).
 11. Set motion preset (subtle/standard/playful), respect prefers-reduced-motion.
-12. Write `tokens.json` (structured), `theme.css` (HSL CSS variables for ShadCN :root + .dark), `component-variants.md` (Button, Card, Input, Badge, Dialog initial variants with cva snippets).
+12. Write `tokens.json` (structured), `theme.css` (OKLCH CSS variables for ShadCN :root + .dark — current ShadCN convention), `component-variants.md` (Button, Card, Input, Badge, Dialog initial variants with cva snippets).
 13. Verify: contrast pairs (foreground vs background, primary-foreground vs primary, destructive-foreground vs destructive) all >= AA.
 
 ## Outputs (files written)
 
 - `tokens.json` (schema in spec §8.4)
-- `theme.css` — `:root { --color-... }` + `.dark { ... }` blocks. HSL format for ShadCN compatibility.
+- `theme.css` — `:root { --color-... }` + `.dark { ... }` blocks. OKLCH format (current ShadCN convention since late 2024).
 - `component-variants.md` — Markdown with cva snippets ready to copy into frontend repo.
 
 Plus: a final response message summarizing choices for main to confirm with user (3-5 sentences).
@@ -3716,7 +3716,7 @@ If contrast cannot reach AA with chosen colors: report the conflict, propose 2 a
 ## Style
 
 - Tokens are decisions, not options — choose, don't enumerate. The user can change later.
-- All CSS variables in HSL (ShadCN convention) even though OKLCH was used internally.
+- All CSS variables in OKLCH (current ShadCN convention; legacy HSL projects can convert at copy time using culori or similar).
 - Comment the theme.css with which token came from where (for traceability).
 ```
 
@@ -4253,7 +4253,15 @@ You are running `/webstack:infra`. Apply or modify infrastructure based on `<pro
 
 1. Verify `<project_root>/.webstack/manifest.yaml` exists. Read project name and infrastructure repo path.
 2. Verify `<infra-repo>/.env` exists (do NOT read its content; just check `[ -f .env ]`). If missing: stop, point user to SETUP.md.
-3. Verify env vars exported: `[ -n "$VERCEL_TOKEN" ] && [ -n "$ORACLE_API_KEY" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]` — but you cannot inspect values; check via `bash -c 'test -n "$VERCEL_TOKEN"; echo $?'` returning 0 (without echoing the value).
+3. Verify Terraform-prefixed env vars exported (Terraform reads `TF_VAR_*` automatically; `docs/infrastructure/setup-guide.md` Step 3 instructs the user to use this prefix). Check presence without revealing values:
+
+   ```bash
+   for v in TF_VAR_vercel_token TF_VAR_oci_tenancy_ocid TF_VAR_oci_user_ocid TF_VAR_oci_fingerprint TF_VAR_oci_private_key_path TF_VAR_oci_region TF_VAR_supabase_access_token TF_VAR_supabase_db_password; do
+     bash -c "test -n \"\${$v:-}\"" || { echo "missing: $v"; exit 1; }
+   done && echo "all TF_VAR_* present"
+   ```
+
+   If any var is missing: stop, point user to `<infra-repo>/SETUP.md` Step 3.
 4. Verify terraform CLI: `terraform version`. Require ≥ 1.6.
 5. Invoke `security-auditor` SubAgent with all 3 repos. Wait for report.
    - If Critical findings: stop. Show user, request resolution before proceeding.
@@ -4312,7 +4320,7 @@ terraform output -json > /tmp/tf-outputs.json
 
 ## Phase 5: manifest update + .env.local guidance
 
-1. Read `/tmp/tf-outputs.json`. Update `<project_root>/.webstack/manifest.yaml` with output values that are NOT sensitive (e.g., vercel_project_id, oracle_public_ip, supabase_project_ref). Sensitive outputs (DB password, service_role key) are NOT written to manifest — instead, instruct user how to retrieve via `terraform output -raw <name>` in their shell.
+1. Read `/tmp/tf-outputs.json`. Update `<project_root>/.webstack/manifest.yaml` with output values that are NOT sensitive (canonical Terraform output names: vercel_project_url, oracle_instance_public_ip, supabase_project_url — see docs/infrastructure/terraform-modules.md). Sensitive outputs (DB password, service_role key) are NOT written to manifest — instead, instruct user how to retrieve via `terraform output -raw <name>` in their shell.
 2. Generate `.env.local.template` updates for frontend repo (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_API_URL, etc.) and backend repo (SUPABASE_DB_URL placeholder, etc.). Show user the diff; do not auto-commit.
 3. Print:
    > Infrastructure applied. Outputs at `<infra-repo>/terraform.tfstate` (gitignored).
@@ -4368,7 +4376,7 @@ You are running `/webstack:deploy`. Push code to production. Confirm everything;
 
 ## Pre-flight (P0)
 
-1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has vercel_project_id + oracle_public_ip + supabase_project_ref).
+1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has vercel_project_url + oracle_instance_public_ip + supabase_project_url (canonical Terraform output names)).
 2. Invoke `security-auditor` SubAgent on all 3 repos. Block on Critical.
 3. For frontend: `cd <fe-repo> && git status --porcelain` empty + on main + main is up to date with origin (`git fetch && git rev-list HEAD..origin/main` is empty). If not: surface to user.
 4. For backend: same checks.
@@ -4390,7 +4398,7 @@ Capture choice. Confirm: "About to deploy `<choice>`. Type `deploy` to proceed."
 
 Vercel auto-deploys on push to main. Since pre-flight already checks main = origin/main, simply:
 
-1. Confirm Vercel project linked: read `manifest.yaml` for vercel_project_id.
+1. Confirm Vercel project linked: read `manifest.yaml` for vercel_project_url.
 2. Print URL: `https://vercel.com/<team>/<project>` for user to monitor.
 3. Optionally: poll Vercel REST API (`GET /v9/projects/<id>/deployments`) every 10s, surface state changes (BUILDING → READY / ERROR), max 10 minutes.
 4. On ERROR: fetch latest deployment build logs URL; show to user.
@@ -4878,94 +4886,77 @@ git commit -m "feat(commands): add /webstack:deploy command (invokes deploy skil
 
 ---
 
-## Phase 6: hooks/ — 1 task
+## Phase 6: hooks/ — 4 files
 
-### Task 6.1: `hooks/hooks.json`
+### Task 6.1: `hooks/hooks.json` + 3 helper scripts
 
 **Files:**
 - Create: `/Users/cares/fullstack-harness/hooks/hooks.json`
+- Create: `/Users/cares/fullstack-harness/hooks/block_env_read.py`
+- Create: `/Users/cares/fullstack-harness/hooks/block_env_bash.py`
+- Create: `/Users/cares/fullstack-harness/hooks/session_start.sh`
 
 - [ ] **Step 1: Define expected behavior**
 
-PreToolUse hooks for `.env*` Read protection (extra layer beyond per-repo deny rules), SessionStart hook to detect webstack project and surface SETUP.md if init phase incomplete.
+PreToolUse hooks for `.env*` Read protection (extra layer beyond per-repo deny rules), Bash command-pattern protection (block `cat .env`, `printenv *_TOKEN`, bare `env`, `echo $*_TOKEN` etc.), SessionStart hook to detect webstack project state and surface SETUP.md if init phase incomplete.
 
-- [ ] **Step 2: Write file**
+Schema note: Claude Code's hook config is an object keyed by event name (`PreToolUse`, `SessionStart`, ...), with `matcher` as a regex string matching the tool name (`Read`, `Bash`), and `hooks` as a nested array of `{type: "command", command: "..."}` handlers. Path glob and command pattern matching live in helper Python/Bash scripts that read `tool_input` from stdin and exit 2 with stderr to block.
+
+- [ ] **Step 2: Write `hooks/hooks.json` (Claude Code standard schema)**
 
 ```json
 {
-  "hooks": [
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Read",
-        "path_glob": "**/.env"
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/block_env_read.py" }
+        ]
       },
-      "command": "echo 'BLOCKED by webstack: .env files contain secrets — webstack does not allow AI Read access. Source them in your shell instead.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Read",
-        "path_glob": "**/.env.local"
-      },
-      "command": "echo 'BLOCKED by webstack: .env.local files contain secrets — webstack does not allow AI Read access.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Read",
-        "path_glob": "**/.env.*.local"
-      },
-      "command": "echo 'BLOCKED by webstack: .env.*.local files contain secrets — webstack does not allow AI Read access.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Read",
-        "path_glob": "**/secrets.local.*"
-      },
-      "command": "echo 'BLOCKED by webstack: secrets.local.* files are protected.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Bash",
-        "command_pattern": "(cat|head|tail|less|more|bat).*\\.env"
-      },
-      "command": "echo 'BLOCKED by webstack: cannot read .env files via shell either.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Bash",
-        "command_pattern": "printenv [^ ]*(TOKEN|KEY|SECRET|PASSWORD)"
-      },
-      "command": "echo 'BLOCKED by webstack: printenv on secret-named variables is blocked.' && exit 1"
-    },
-    {
-      "type": "PreToolUse",
-      "matcher": {
-        "tool": "Bash",
-        "command_pattern": "^env( |$)"
-      },
-      "command": "echo 'BLOCKED by webstack: bare `env` exposes all environment variables including secrets.' && exit 1"
-    },
-    {
-      "type": "SessionStart",
-      "command": "test -f .webstack/manifest.yaml && echo '— webstack project detected. Run /webstack:feature to add a feature, /webstack:infra for infra changes, /webstack:deploy to deploy.' || true"
-    },
-    {
-      "type": "SessionStart",
-      "command": "test -f .webstack/SETUP.md && ! test -f .webstack/manifest.yaml && echo '— webstack init partially complete. Read .webstack/SETUP.md, sign up for free-tier services, then run /webstack:infra.' || true"
-    }
-  ]
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/block_env_bash.py" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          { "type": "command", "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session_start.sh" }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-- [ ] **Step 3: Validate JSON**
+- [ ] **Step 2b: Write `hooks/block_env_read.py`**
 
-Run: `python3 -c "import json; d = json.load(open('/Users/cares/fullstack-harness/hooks/hooks.json')); assert isinstance(d['hooks'], list) and len(d['hooks']) >= 9; print('OK', len(d['hooks']), 'hooks')"`
-Expected: `OK 9 hooks` (or more).
+Exit 2 with stderr message blocks the tool call. Patterns: `**/.env`, `**/.env.local`, `**/.env.*.local`, `**/secrets.local.*`. See actual file at `/Users/cares/fullstack-harness/hooks/block_env_read.py` for the verbatim content (~36 lines).
+
+- [ ] **Step 2c: Write `hooks/block_env_bash.py`**
+
+Block bash commands matching: `cat|head|tail|less|more|bat .env`, `printenv *_TOKEN/_KEY/_SECRET/_PASSWORD`, `^env`, `env|grep`, `echo $*_TOKEN`. See actual file at `/Users/cares/fullstack-harness/hooks/block_env_bash.py` (~41 lines).
+
+- [ ] **Step 2d: Write `hooks/session_start.sh`**
+
+Detect `.webstack/manifest.yaml` (init complete) or `.webstack/SETUP.md` (init partial); emit one-line guidance to session context.
+
+- [ ] **Step 3: chmod + validate**
+
+```bash
+chmod +x hooks/*.py hooks/*.sh
+python3 -c "import json; d = json.load(open('/Users/cares/fullstack-harness/hooks/hooks.json')); assert 'hooks' in d and isinstance(d['hooks'], dict); print('OK')"
+echo '{"tool_name":"Read","tool_input":{"file_path":"/tmp/foo/.env"}}' | python3 hooks/block_env_read.py; [ $? -eq 2 ] && echo "OK: env blocked"
+echo '{"tool_name":"Read","tool_input":{"file_path":"/tmp/foo/main.py"}}' | python3 hooks/block_env_read.py; [ $? -eq 0 ] && echo "OK: source allowed"
+echo '{"tool_name":"Bash","tool_input":{"command":"cat .env"}}' | python3 hooks/block_env_bash.py; [ $? -eq 2 ] && echo "OK: cat .env blocked"
+echo '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' | python3 hooks/block_env_bash.py; [ $? -eq 0 ] && echo "OK: ls allowed"
+```
+
+Expected: 4 OK lines.
 
 - [ ] **Step 4: Commit**
 
@@ -5266,11 +5257,11 @@ Mock terraform:
 
 ```bash
 cat > .env <<EOF
-VERCEL_TOKEN=mock_vercel_token
-ORACLE_API_KEY=mock_oracle_key
+TF_VAR_vercel_token=mock_vercel_token
+TF_VAR_oci_user_ocid=ocid1.user.oc1..mock
 ORACLE_FINGERPRINT=00:00:00:00
 ORACLE_TENANCY_OCID=ocid1.tenancy.oc1..mock
-SUPABASE_ACCESS_TOKEN=mock_supabase_token
+TF_VAR_supabase_access_token=mock_supabase_token
 EOF
 set -a && source .env && set +a
 ```
