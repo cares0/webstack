@@ -5,8 +5,8 @@
   "description": "Fullstack web service harness for Claude Code (plugin metadata mirror)",
   "scripts": {
     "lint:md": "markdownlint '**/*.md' --ignore node_modules",
-    "lint:json": "find . -name '*.json' -not -path './node_modules/*' -exec python3 -c \"import json,sys; json.load(open(sys.argv[1]))\" {} \\;",
-    "lint:yaml": "find . -name '*.yaml' -o -name '*.yml' -not -path './node_modules/*' | xargs -I{} python3 -c \"import yaml,sys; yaml.safe_load(open('{}'))\"",
+    "lint:json": "find . -name '*.json' -not -path './node_modules/*' -not -path './.git/*' -exec python3 -c \"import json,sys; json.load(open(sys.argv[1]))\" {} \\;",
+    "lint:yaml": "find . \\( -name '*.yaml' -o -name '*.yml' \\) -not -path './node_modules/*' -not -path './.git/*' | xargs -I{} python3 -c \"import yaml,sys; yaml.safe_load(open('{}'))\"",
     "test:scenarios": "echo 'Run tests/scenarios/*.md manually in Claude Code session'"
   },
   "repository": {
