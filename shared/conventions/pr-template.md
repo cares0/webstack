@@ -65,17 +65,20 @@ Mirror the squash commit subject. See `conventional-commits.md`.
 ## Reviewer focus points
 
 For backend reviewers:
+
 - Domain layer free of Spring/JPA imports?
 - Aggregate invariants enforced in entity, not service?
 - Repository methods aggregate-scoped?
 
 For frontend reviewers:
+
 - Server / Client component boundary intentional?
 - Codegen output not hand-edited?
 - Form validation Zod-defined?
 - Accessible (keyboard, screen reader, contrast)?
 
 For infra reviewers:
+
 - Terraform plan attached in PR comment?
 - All sensitive variables marked `sensitive = true`?
 - No state file committed?

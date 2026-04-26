@@ -24,11 +24,13 @@
 > "Comments are, at best, a necessary evil. ... Every time you write a comment, you should grimace and feel the failure of your ability of expression."
 
 Default: **no comments**. Only write comments when:
+
 - Explaining non-obvious WHY (a hidden constraint, regulatory requirement, workaround).
 - Marking deliberate `TODO` / `FIXME` with context (issue number, owner, deadline).
 - Public API docs (KDoc, JSDoc) for libraries — but minimal, generated from signatures.
 
 Don't:
+
 - Explain WHAT the code does (rename / extract until it's obvious).
 - Reference the current task or PR (rots fast).
 - Repeat the function signature in prose.

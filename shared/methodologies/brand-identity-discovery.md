@@ -1,6 +1,7 @@
 # Brand Identity Discovery
 
 > Sources:
+>
 > - Alina Wheeler, *Designing Brand Identity*, 5th ed. (Wiley, 2017)
 > - Carl Jung, archetypes (collected in *The Archetypes and the Collective Unconscious*)
 > - Margaret Mark & Carol Pearson, *The Hero and the Outlaw* (2001) — modern 12 archetype framework

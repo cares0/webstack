@@ -1,6 +1,7 @@
 # Domain-Driven Design (DDD)
 
 > Sources:
+>
 > - Eric Evans, *Domain-Driven Design: Tackling Complexity in the Heart of Software* (Blue Book, 2003)
 > - Vaughn Vernon, *Implementing Domain-Driven Design* (Red Book, 2013)
 
@@ -13,6 +14,7 @@ Domain experts and developers share **one** vocabulary — captured in code, tes
 ### Bounded Context
 
 A bounded context is a boundary within which a particular domain model is consistent. The same word can mean different things in different contexts:
+
 - `Customer` in `Sales` context: prospect with conversion data.
 - `Customer` in `Billing` context: account with payment history.
 

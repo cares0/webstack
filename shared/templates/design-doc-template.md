@@ -32,6 +32,7 @@ What does the reader need to know that's not obvious? Existing systems, prior at
 ## Proposal
 
 The decision in moderate detail. Include:
+
 - High-level architecture (1 diagram or a few sentences).
 - Data model changes.
 - API surface (link to OpenAPI YAML).
@@ -40,6 +41,7 @@ The decision in moderate detail. Include:
 ## Detailed design
 
 For each non-obvious component:
+
 - Inputs / outputs.
 - Algorithms / data structures.
 - Error handling.

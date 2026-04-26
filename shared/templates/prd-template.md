@@ -27,6 +27,7 @@ One sentence. What problem does this feature solve, for whom, and why now?
 ## Functions / Behaviors
 
 For each function:
+
 - **Input**: what triggers it (user action, schedule, event).
 - **Output**: what changes (UI update, data write, message dispatched).
 - **Validation**: business rules.
@@ -50,6 +51,7 @@ For each function:
 ## API surface
 
 Outline (full spec in contract YAML):
+
 - `POST /<resource>`: <one-line>.
 - `GET /<resource>/{id}`: <one-line>.
 - ...

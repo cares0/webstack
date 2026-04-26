@@ -1,6 +1,7 @@
 # Persona Creation
 
 > Sources:
+>
 > - Alan Cooper, *About Face: The Essentials of Interaction Design*, 4th ed. (Wiley, 2014)
 > - Dave Gray (XPLANE), Empathy Map Canvas
 > - Nielsen Norman Group persona articles
@@ -35,6 +36,7 @@ In webstack init P2, the agent runs an abbreviated version: capture goals, pain 
 ## Empathy mapping (XPLANE) supplement
 
 For each persona, capture:
+
 - **Says**: literal quotes.
 - **Thinks**: internal beliefs, sometimes contradicting "Says".
 - **Does**: observed behavior.

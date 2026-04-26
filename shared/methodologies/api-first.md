@@ -1,6 +1,7 @@
 # API-First Development (Contract-First with OpenAPI 3.1)
 
 > Sources:
+>
 > - OpenAPI 3.1 spec (https://spec.openapis.org/oas/v3.1.0)
 > - Glovo Engineering, "Using contract-first to build an HTTP Application with OpenAPI and Gradle"
 > - Schwarz IT, "Contract first with SpringBoot"
@@ -9,6 +10,7 @@
 ## The Principle
 
 The contract (OpenAPI YAML) is the **single source of truth**. Both ends — frontend and backend — derive from it. Divergence is impossible because:
+
 - Frontend types are codegen'd from the contract (`@hey-api/openapi-ts`).
 - Backend implementation is checked at runtime against the contract (`springdoc-openapi` exposes runtime spec; `contract-drift-detective` agent diffs against `.webstack/contracts/<feature>.yaml`).
 

@@ -1,6 +1,7 @@
 # Design System Extraction
 
 > Sources:
+>
 > - Adam Wathan & Steve Schoger, *Refactoring UI* (2018)
 > - Material Design 3 tokens (https://m3.material.io/foundations/design-tokens/overview)
 > - Brad Frost, *Atomic Design* (2016)

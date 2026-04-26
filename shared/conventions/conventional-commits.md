@@ -31,6 +31,7 @@
 ## Scopes (webstack-specific)
 
 For plugin development:
+
 - `meta` — `.claude-plugin/`, package.json, LICENSE, CHANGELOG.
 - `commands` — `commands/*.md`.
 - `skills` — `skills/<name>/SKILL.md` (e.g., `feat(skills/init): ...`).
@@ -42,6 +43,7 @@ For plugin development:
 - `ci` — `.github/`.
 
 For projects scaffolded BY webstack:
+
 - `domain` — domain layer changes.
 - `app` — application layer.
 - `infra` — infrastructure adapter.
