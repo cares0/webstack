@@ -65,7 +65,14 @@ Checkpoint: "Persona captured. Proceed to design system extraction?"
 
 ## Phase 3: Design system extraction
 
-Invoke `design-system-architect` SubAgent with `identity.md` + `personas/*.md`. Receive `tokens.json`, `theme.css`, `component-variants.md` written to `.webstack/design-system/`.
+Invoke `design-system-architect` SubAgent with the four inputs the agent declares (see `agents/design-system-architect.md`):
+
+- `identity_path`: absolute path to `<project_root>/.webstack/identity.md`
+- `personas_dir`: absolute path to `<project_root>/.webstack/personas/`
+- `output_dir`: absolute path to `<project_root>/.webstack/design-system/` (the agent will create this dir if absent)
+- `reference_assets` (optional): list of absolute paths to user-provided mood images / Figma exports captured during P1 step 6 — pass an empty list if none
+
+The agent writes `tokens.json`, `theme.css`, and `component-variants.md` to `output_dir` and returns a summary message.
 
 Show the user a brief textual summary (palette name, type families, density). Offer 3 paths:
 
@@ -77,15 +84,15 @@ Checkpoint: "Design system finalized. Proceed to repo scaffolding?"
 
 ## Phase 4: Frontend repo scaffolding
 
-1. `gh repo create <project>-frontend --private --confirm` (or `--public` per user preference). If `gh` not configured: instruct user to run `gh auth login`.
+1. `gh repo create <project>-frontend --private --clone` (or `--public` per user preference). If `gh` not configured: instruct user to run `gh auth login`.
 2. `git clone` into sibling dir.
-3. `cd <project>-frontend && pnpm dlx create-next-app@latest . --ts --tailwind --app --no-eslint --import-alias "@/*"` (Next.js 15+, App Router default).
+3. `cd <project>-frontend && pnpm dlx create-next-app@latest . --ts --tailwind --app --src-dir --no-eslint --import-alias "@/*"` (Next.js 15+, App Router default).
 4. Replace generated `app/globals.css` with content adapted from `<project_root>/.webstack/design-system/theme.css`. Ensure `@import "tailwindcss"` and `@theme {}` block.
 5. `pnpm dlx shadcn@latest init` — choose New York or default per design system style. Use generated `components.json` baseColor matching theme.
 6. Install ShadCN initial components: button, card, input, form, label, badge, dialog, sheet, dropdown-menu, tooltip. (`shadcn add <name>` for each.)
 7. Apply component-variants.md cva extensions to `components/ui/button.tsx` etc.
 8. Install + configure: `react-hook-form`, `zod`, `@hookform/resolvers/zod`, `@tanstack/react-query`, `@tanstack/react-query-devtools`, `@hey-api/openapi-ts`, `@hey-api/client-fetch`.
-9. Add `openapi-ts.config.ts` pointing to `../<project>/.webstack/contracts/` (glob — runtime: each feature has its own).
+9. Add `openapi-ts.config.ts` pointing to `../.webstack/contracts/` (glob — runtime: each feature has its own).
 10. Add `package.json` scripts: `typecheck`, `lint`, `test` (Vitest), `format`, `gen:api` (openapi-ts).
 11. Initial commit: "feat: init <project>-frontend (Next.js + ShadCN + Tailwind v4)".
 12. `git push -u origin main`.
@@ -94,7 +101,7 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
 
 ## Phase 5: Backend repo scaffolding
 
-1. `gh repo create <project>-backend --private --confirm`.
+1. `gh repo create <project>-backend --private --clone`.
 2. `git clone` into sibling dir.
 3. Use Spring Initializr API or curl to generate base:
 
@@ -140,7 +147,7 @@ Checkpoint: "Backend repo created. Proceed to infrastructure?"
 
 ## Phase 6: Infrastructure repo + SETUP.md
 
-1. `gh repo create <project>-infrastructure --private --confirm`. Clone.
+1. `gh repo create <project>-infrastructure --private --clone`. Clone.
 2. Create directory structure (see `docs/infrastructure/terraform-modules.md`):
 
    ```

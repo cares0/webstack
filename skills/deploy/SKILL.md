@@ -15,7 +15,7 @@ You are running `/webstack:deploy`. Push code to production. Confirm everything;
 
 ## Pre-flight (P0)
 
-1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has vercel_project_id + oracle_public_ip + supabase_project_ref).
+1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has `vercel_project_url` + `oracle_instance_public_ip` + `supabase_project_url` keys mirrored from `terraform output`).
 2. Invoke `security-auditor` SubAgent on all 3 repos. Block on Critical.
 3. For frontend: `cd <fe-repo> && git status --porcelain` empty + on main + main is up to date with origin (`git fetch && git rev-list HEAD..origin/main` is empty). If not: surface to user.
 4. For backend: same checks.
@@ -53,18 +53,22 @@ Vercel auto-deploys on push to main. Since pre-flight already checks main = orig
    ```
 
    (test was already run in pre-flight; skip rerun.)
-2. Locate jar: `ls build/libs/*.jar`.
-3. SCP to Oracle VM (host from manifest):
+2. Locate jar: `ls build/libs/*.jar` and pick the executable jar (Spring Boot's `bootJar` task emits a single fat jar). If multiple, pick the one without `-plain.jar` suffix.
+3. SCP jar + env file to Oracle VM (host = `oracle_instance_public_ip` from manifest; user = `ubuntu` per the Ubuntu 22.04 ARM image documented in `docs/infrastructure/oracle-cloud-setup.md`):
 
    ```bash
-   scp -i ~/.ssh/<key> build/libs/<project>-*.jar opc@<public_ip>:/opt/<project>/app.jar
+   scp -i ~/.ssh/<key> build/libs/app.jar ubuntu@<oracle_instance_public_ip>:/opt/app/app.jar
+   scp -i ~/.ssh/<key> deploy/app.env ubuntu@<oracle_instance_public_ip>:/opt/app/app.env
    ```
 
-   (User must have configured SSH key during init/infra phases.)
-4. Restart service:
+   Notes:
+   - The systemd unit `webstack-app.service` (provisioned by `cloud-init.yaml` during `/webstack:infra`) reads `/opt/app/app.env` for `DATABASE_URL`, `SUPABASE_*`, etc.
+   - `deploy/app.env` is a per-deploy environment file you assemble locally from the manifest + sensitive `terraform output -raw` values; never commit it (gitignore `deploy/app.env`).
+   - The user must have configured the SSH key during `/webstack:infra` (the public key was injected via `oci_core_instance.metadata.ssh_authorized_keys`).
+4. Restart the service (service name is fixed: `webstack-app.service`):
 
    ```bash
-   ssh -i ~/.ssh/<key> opc@<public_ip> "sudo systemctl restart <project>.service && sudo systemctl status <project>.service --no-pager"
+   ssh -i ~/.ssh/<key> ubuntu@<oracle_instance_public_ip> "sudo systemctl restart webstack-app.service && sudo systemctl status webstack-app.service --no-pager"
    ```
 
 5. Wait 15-30s for boot. Health-check:
@@ -73,7 +77,11 @@ Vercel auto-deploys on push to main. Since pre-flight already checks main = orig
    curl -fsS https://<api-domain>/actuator/health | jq .status
    ```
 
-   Expected: `"UP"`. If not: tail journalctl logs, show user.
+   Expected: `"UP"`. If not, retry 3 times with 10s spacing; if still failing, tail journalctl and surface to the user:
+
+   ```bash
+   ssh -i ~/.ssh/<key> ubuntu@<oracle_instance_public_ip> "sudo journalctl -u webstack-app.service --no-pager -n 100"
+   ```
 
 ## Phase 4: Result + summary
 
