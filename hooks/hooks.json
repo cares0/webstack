@@ -1,0 +1,68 @@
+{
+  "hooks": [
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Read",
+        "path_glob": "**/.env"
+      },
+      "command": "echo 'BLOCKED by webstack: .env files contain secrets — webstack does not allow AI Read access. Source them in your shell instead.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Read",
+        "path_glob": "**/.env.local"
+      },
+      "command": "echo 'BLOCKED by webstack: .env.local files contain secrets — webstack does not allow AI Read access.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Read",
+        "path_glob": "**/.env.*.local"
+      },
+      "command": "echo 'BLOCKED by webstack: .env.*.local files contain secrets — webstack does not allow AI Read access.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Read",
+        "path_glob": "**/secrets.local.*"
+      },
+      "command": "echo 'BLOCKED by webstack: secrets.local.* files are protected.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Bash",
+        "command_pattern": "(cat|head|tail|less|more|bat).*\\.env"
+      },
+      "command": "echo 'BLOCKED by webstack: cannot read .env files via shell either.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Bash",
+        "command_pattern": "printenv [^ ]*(TOKEN|KEY|SECRET|PASSWORD)"
+      },
+      "command": "echo 'BLOCKED by webstack: printenv on secret-named variables is blocked.' && exit 1"
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": {
+        "tool": "Bash",
+        "command_pattern": "^env( |$)"
+      },
+      "command": "echo 'BLOCKED by webstack: bare `env` exposes all environment variables including secrets.' && exit 1"
+    },
+    {
+      "type": "SessionStart",
+      "command": "test -f .webstack/manifest.yaml && echo '— webstack project detected. Run /webstack:feature to add a feature, /webstack:infra for infra changes, /webstack:deploy to deploy.' || true"
+    },
+    {
+      "type": "SessionStart",
+      "command": "test -f .webstack/SETUP.md && ! test -f .webstack/manifest.yaml && echo '— webstack init partially complete. Read .webstack/SETUP.md, sign up for free-tier services, then run /webstack:infra.' || true"
+    }
+  ]
+}
