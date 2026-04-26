@@ -138,11 +138,15 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://<project_ref>.supabase.co/auth/v1
-          jwk-set-uri: https://<project_ref>.supabase.co/auth/v1/.well-known/jwks.json
+          # HS256 default: new Supabase projects sign JWTs symmetrically with the
+          # project's JWT secret (find it in Project Settings → API → JWT Settings).
+          # Provide the shared secret as an environment variable; do NOT commit it.
+          secret-key: ${SUPABASE_JWT_SECRET}
 ```
 
-For older HS256-signed projects:
+`spring-boot-starter-oauth2-resource-server` doesn't decode HS256 out of the box — register a `JwtDecoder` bean using `NimbusJwtDecoder.withSecretKey(...)` with the secret as a `SecretKeySpec`. Reference: <https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html#oauth2resourceserver-jwt-decoder>.
+
+For projects that have **opted into asymmetric signing** (Project Settings → JWT Signing Keys → migrate to ES256/RS256), use the JWKS endpoint instead:
 
 ```yaml
 spring:
@@ -150,12 +154,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri:
-          # HS256 path: provide the shared secret instead
-          # secret: ${SUPABASE_JWT_SECRET}
+          issuer-uri: https://<project_ref>.supabase.co/auth/v1
+          jwk-set-uri: https://<project_ref>.supabase.co/auth/v1/.well-known/jwks.json
 ```
 
-(Spring Security's HS256 path requires a custom `JwtDecoder` bean; RS256 with JWKS is preferred and is the default for new Supabase projects.)
+(webstack recommendation: enable asymmetric signing during initial Supabase project setup so Spring Resource Server can verify with `jwk-set-uri` without needing the shared secret in the backend environment. The default HS256 path works but ties one more secret to the deploy story.)
 
 The frontend calls `supabase.auth.signIn(...)` to obtain a JWT, then sends it as `Authorization: Bearer <token>` to the Spring backend. Spring extracts the user UUID from the JWT's `sub` claim and treats it as the `userId` in domain code.
 

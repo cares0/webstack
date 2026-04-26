@@ -283,7 +283,7 @@ export default defineConfig({
       name: '@tanstack/react-query',
       queryOptions: true,
       mutationOptions: true,
-      infiniteQueries: true,
+      infiniteQueryOptions: true,
     },
   ],
 });

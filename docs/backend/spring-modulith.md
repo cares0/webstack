@@ -45,7 +45,9 @@ The `internal` sub-package name is convention; Modulith treats anything not in t
 
 ## ApplicationModule annotation
 
-Declare the module on `package-info.java` (one per module). Java rather than Kotlin — Kotlin does not support package-level annotations as cleanly, and Modulith's processor reads the standard JVM `package-info`.
+Declare the module either on a Java `package-info.java` (the conventional JVM mechanism) or, in a Kotlin codebase, on a class annotated `@PackageInfo` (Modulith ≥ 1.2). Pick one form per module — don't mix.
+
+Java form (`package-info.java`):
 
 ```java
 @org.springframework.modulith.ApplicationModule(
@@ -55,9 +57,27 @@ Declare the module on `package-info.java` (one per module). Java rather than Kot
 package com.example.app.billing;
 ```
 
+Kotlin form (a small `ModuleMetadata.kt` in the module's root package):
+
+```kotlin
+package com.example.app.billing
+
+import org.springframework.modulith.ApplicationModule
+import org.springframework.modulith.PackageInfo
+
+@PackageInfo
+@ApplicationModule(
+    displayName = "Billing",
+    allowedDependencies = ["catalog", "shared"],
+)
+internal class ModuleMetadata
+```
+
+webstack convention: Kotlin codebases use the `@PackageInfo` form to avoid a single Java source file in an otherwise-Kotlin module.
+
 - **`displayName`** — used by the documentation generator.
 - **`allowedDependencies`** — explicit whitelist. Empty (the default) means "no other internal modules"; depending on Spring infrastructure or `java.*` is always allowed.
-- **`allowedDependencies = "::starter"`** — restricts the module to depending only on a specific named "starter" sub-package convention (rare).
+- **Named interfaces** — for finer-grained dependency control, declare a named interface (`@org.springframework.modulith.NamedInterface("spi")` on a sub-package) and reference it as `"<module> :: <interface>"` (e.g., `allowedDependencies = ["order :: spi"]`). Reference: Modulith reference, "Named Interfaces".
 
 Whenever a new module needs a dependency on another, the `allowedDependencies` array is the audit trail: the change is reviewable in PR.
 

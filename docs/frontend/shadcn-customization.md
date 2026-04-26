@@ -58,7 +58,7 @@ This file is read every time the CLI generates a component. Fields:
 }
 ```
 
-- `style`: `default` (rounded corners, softer) or `new-york` (sharper edges, denser). Pick one and lock it.
+- `style`: `new-york` is the modern default (sharper edges, denser); `default` is the legacy v1 style and rarely picked for new projects. Pick one and lock it.
 - `rsc: true`: emits Server-Component-aware files (no top-of-file `'use client'` unless required).
 - `tailwind.css`: path to the global CSS file where variables are written.
 - `tailwind.cssVariables: true`: variants reference `bg-primary`, `text-foreground` (mapped to CSS vars). Setting `false` would inline color values into Tailwind classes — webstack uses `true` so the design-system can swap themes.

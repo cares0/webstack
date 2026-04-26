@@ -133,7 +133,7 @@ Also confirm `.claude/settings.local.json` includes a deny rule for reading `.en
 cat .claude/settings.local.json
 ```
 
-The file should contain a `permissions.deny` array entry like `"Read(./.env)"`. This blocks Claude Code from reading the file in any session.
+The file should contain `permissions.deny` array entries that block AI Read of the file. Exact pattern depends on what `/webstack:init` P6 emitted — typical examples include `"Read(./.env)"`, `"Read(.env)"`, or globbed `"Read(**/.env)"`. This blocks Claude Code from reading the file in any session. (See the project's `hooks/hooks.json` PreToolUse rule as the second line of defence.)
 
 ## Step 5: Export environment variables
 

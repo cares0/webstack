@@ -96,8 +96,10 @@ resource "vercel_project" "frontend" {
     repo              = "your-org/example-app-frontend"
     production_branch = "main"
   }
-  serverless_function_region = "icn1" # Seoul; change per geography
-  build_command              = "next build"
+  build_command = "next build"
+  resource_config = {
+    function_default_regions = ["icn1"] # Seoul; change per geography
+  }
 }
 
 resource "vercel_project_environment_variable" "api_url" {
@@ -145,6 +147,25 @@ For DNS managed in Cloudflare, set the records to **Proxy: DNS only** (gray clou
 Project import wires a Git hook automatically: `git push origin main` triggers a production deploy; pushing to any other branch creates a preview deploy with a unique URL like `example-app-frontend-git-feat-foo-org.vercel.app`. PR comments on GitHub include the preview URL.
 
 For non-git triggers (cron, manual deploys), Vercel exposes per-project **Deploy Hooks** under **Project Settings** → **Git**. Posting any payload (including empty) to the hook URL triggers a deploy.
+
+## Deployment status polling
+
+`/webstack:deploy` watches a deployment from BUILDING through to READY (or ERROR/CANCELED). The Vercel REST API endpoint:
+
+```
+GET https://api.vercel.com/v6/deployments?projectId=<project_id>&limit=1
+Authorization: Bearer <VERCEL_TOKEN>
+```
+
+Returns the latest deployment with a `state` field whose terminal values are:
+
+- `READY` — build + deploy succeeded; serving traffic.
+- `ERROR` — build or deploy failed; URL surfaces build logs.
+- `CANCELED` — replaced by a newer deployment before completion.
+
+Non-terminal: `INITIALIZING`, `BUILDING`, `QUEUED`. Poll every 5–10s; budget 10 minutes max for a hobby-tier build before timing out and surfacing logs to the user.
+
+Reference: <https://vercel.com/docs/rest-api/reference/endpoints/deployments/list-deployments>.
 
 In webstack, the convention is `git push origin main` is the deploy command. `/webstack:deploy` runs nothing more than the push; Vercel takes over.
 
