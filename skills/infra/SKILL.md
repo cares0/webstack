@@ -19,7 +19,15 @@ You are running `/webstack:infra`. Apply or modify infrastructure based on `<pro
 
 1. Verify `<project_root>/.webstack/manifest.yaml` exists. Read project name and infrastructure repo path.
 2. Verify `<infra-repo>/.env` exists (do NOT read its content; just check `[ -f .env ]`). If missing: stop, point user to SETUP.md.
-3. Verify env vars exported: `[ -n "$VERCEL_TOKEN" ] && [ -n "$ORACLE_API_KEY" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ]` — but you cannot inspect values; check via `bash -c 'test -n "$VERCEL_TOKEN"; echo $?'` returning 0 (without echoing the value).
+3. Verify Terraform-prefixed env vars exported (Terraform reads `TF_VAR_*` automatically; `docs/infrastructure/setup-guide.md` Step 3 instructs the user to use this prefix). Check presence without revealing values:
+
+   ```bash
+   for v in TF_VAR_vercel_token TF_VAR_oci_tenancy_ocid TF_VAR_oci_user_ocid TF_VAR_oci_fingerprint TF_VAR_oci_private_key_path TF_VAR_oci_region TF_VAR_supabase_access_token TF_VAR_supabase_db_password; do
+     bash -c "test -n \"\${$v:-}\"" || { echo "missing: $v"; exit 1; }
+   done && echo "all TF_VAR_* present"
+   ```
+
+   If any var is missing: stop, point user to `<infra-repo>/SETUP.md` Step 3.
 4. Verify terraform CLI: `terraform version`. Require ≥ 1.6.
 5. Invoke `security-auditor` SubAgent with all 3 repos. Wait for report.
    - If Critical findings: stop. Show user, request resolution before proceeding.
@@ -79,7 +87,7 @@ terraform output -json > /tmp/tf-outputs.json
 
 ## Phase 5: manifest update + .env.local guidance
 
-1. Read `/tmp/tf-outputs.json`. Update `<project_root>/.webstack/manifest.yaml` with output values that are NOT sensitive (e.g., vercel_project_id, oracle_public_ip, supabase_project_ref). Sensitive outputs (DB password, service_role key) are NOT written to manifest — instead, instruct user how to retrieve via `terraform output -raw <name>` in their shell.
+1. Read `/tmp/tf-outputs.json`. Update `<project_root>/.webstack/manifest.yaml` with output values that are NOT sensitive — the canonical non-sensitive output keys are `vercel_project_url`, `oracle_instance_public_ip`, `supabase_project_url` (declared in `infrastructure/outputs.tf` per `docs/infrastructure/terraform-modules.md` lines 163-176). Mirror those exact keys into `manifest.infrastructure.{vercel_project_url, oracle_instance_public_ip, supabase_project_url}` so `/webstack:deploy` pre-flight can read them. Sensitive outputs (`supabase_anon_key`, `database_url`, DB password) are NOT written to manifest — instead, instruct user how to retrieve via `terraform output -raw <name>` in their shell.
 2. Generate `.env.local.template` updates for frontend repo (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_API_URL, etc.) and backend repo (SUPABASE_DB_URL placeholder, etc.). Show user the diff; do not auto-commit.
 3. Print:
    > Infrastructure applied. Outputs at `<infra-repo>/terraform.tfstate` (gitignored).

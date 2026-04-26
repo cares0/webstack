@@ -89,6 +89,16 @@ variable "oci_region" {
   description = "OCI home region (e.g., ap-seoul-1)"
   type        = string
 }
+
+variable "oci_compartment_id" {
+  description = "OCI compartment OCID for webstack resources (defaults to root tenancy when set equal to oci_tenancy_ocid)"
+  type        = string
+}
+
+variable "oci_ssh_public_key_path" {
+  description = "Path to the SSH public key injected into the OCI VM for webstack:deploy SCP"
+  type        = string
+}
 ```
 
 Values come from environment variables prefixed `TF_VAR_` (e.g., `TF_VAR_vercel_token=...`). The user's `set -a; source .env; set +a` workflow exports them for the shell session that runs `terraform`.

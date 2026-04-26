@@ -69,11 +69,11 @@ For Terraform, set:
 
 ```hcl
 provider "oci" {
-  tenancy_ocid     = var.tenancy_ocid
-  user_ocid        = var.user_ocid
-  fingerprint      = var.fingerprint
-  private_key_path = var.private_key_path
-  region           = var.region
+  tenancy_ocid     = var.oci_tenancy_ocid
+  user_ocid        = var.oci_user_ocid
+  fingerprint      = var.oci_fingerprint
+  private_key_path = var.oci_private_key_path
+  region           = var.oci_region
 }
 ```
 
@@ -94,20 +94,20 @@ Every OCI compute instance lives in a **Virtual Cloud Network (VCN)**. Minimal l
 
 ```hcl
 resource "oci_core_vcn" "main" {
-  compartment_id = var.compartment_id
+  compartment_id = var.oci_compartment_id
   cidr_blocks    = ["10.0.0.0/16"]
   display_name   = "webstack-vcn"
   dns_label      = "webstack"
 }
 
 resource "oci_core_internet_gateway" "main" {
-  compartment_id = var.compartment_id
+  compartment_id = var.oci_compartment_id
   vcn_id         = oci_core_vcn.main.id
   display_name   = "webstack-igw"
 }
 
 resource "oci_core_subnet" "public" {
-  compartment_id    = var.compartment_id
+  compartment_id    = var.oci_compartment_id
   vcn_id            = oci_core_vcn.main.id
   cidr_block        = "10.0.0.0/24"
   display_name      = "webstack-public"
@@ -125,7 +125,7 @@ Ampere A1 is OCI's Arm shape (Neoverse N1). It is **free up to 4 OCPU + 24 GB RA
 
 ```hcl
 data "oci_core_images" "ubuntu_arm" {
-  compartment_id           = var.compartment_id
+  compartment_id           = var.oci_compartment_id
   operating_system         = "Canonical Ubuntu"
   operating_system_version = "22.04"
   shape                    = "VM.Standard.A1.Flex"
@@ -134,7 +134,7 @@ data "oci_core_images" "ubuntu_arm" {
 }
 
 resource "oci_core_instance" "app" {
-  compartment_id      = var.compartment_id
+  compartment_id      = var.oci_compartment_id
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
   shape               = "VM.Standard.A1.Flex"
 
@@ -243,7 +243,7 @@ terraform {
 
 ## webstack convention
 
-- **Provider config:** `infrastructure/main.tf` declares `oracle/oci` pinned to a major version. Auth via `var.tenancy_ocid`, `var.user_ocid`, `var.fingerprint`, `var.private_key_path`, `var.region` — all sensitive in `variables.tf`.
+- **Provider config:** `infrastructure/main.tf` declares `oracle/oci` pinned to a major version. Auth via `var.oci_tenancy_ocid`, `var.oci_user_ocid`, `var.oci_fingerprint`, `var.oci_private_key_path`, `var.oci_region` — all in `variables.tf`. `var.oci_compartment_id` (typically equal to `var.oci_tenancy_ocid` for solo projects, scoping resources to the root compartment) and `var.oci_ssh_public_key_path` complete the OCI variable set.
 - **Compute resources:** `infrastructure/oracle.tf` provisions VCN, public subnet, security list/NSG, and one Ampere A1 instance running Ubuntu 22.04 ARM with cloud-init.
 - **Cloud-init:** `infrastructure/cloud-init.yaml` (referenced via `file()`) installs OpenJDK 21 and the systemd unit. The jar is deployed separately via SCP.
 - **Public IP** assigned at the VNIC level; the Terraform output exposes it for `/webstack:deploy` and DNS configuration.

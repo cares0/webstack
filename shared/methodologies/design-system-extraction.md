@@ -80,33 +80,35 @@ Output: tokens.json + theme.css + component-variants.md.
 
 ## ShadCN CSS variable mapping
 
-ShadCN uses HSL CSS variables in `:root` and `.dark`. Map our tokens:
+Modern ShadCN (post-late-2024 generator) emits OKLCH CSS variables in `:root` and `.dark`. Older projects on HSL can convert at copy-time, but new projects scaffolded by `/webstack:init` should emit OKLCH end-to-end. Map our tokens:
 
 ```css
 :root {
-  --background: <neutral-50 in hsl>;
-  --foreground: <neutral-950 in hsl>;
-  --card: <neutral-50 in hsl>;
-  --card-foreground: <neutral-950 in hsl>;
-  --popover: <neutral-50 in hsl>;
-  --popover-foreground: <neutral-950 in hsl>;
-  --primary: <brand-600 in hsl>;
-  --primary-foreground: <neutral-50 in hsl>;
-  --secondary: <neutral-100 in hsl>;
-  --secondary-foreground: <neutral-900 in hsl>;
-  --muted: <neutral-100 in hsl>;
-  --muted-foreground: <neutral-500 in hsl>;
-  --accent: <neutral-100 in hsl>;
-  --accent-foreground: <neutral-900 in hsl>;
-  --destructive: <danger-600 in hsl>;
-  --destructive-foreground: <neutral-50 in hsl>;
-  --border: <neutral-200 in hsl>;
-  --input: <neutral-200 in hsl>;
-  --ring: <brand-600 in hsl>;
+  --background: <neutral-50 in oklch>;
+  --foreground: <neutral-950 in oklch>;
+  --card: <neutral-50 in oklch>;
+  --card-foreground: <neutral-950 in oklch>;
+  --popover: <neutral-50 in oklch>;
+  --popover-foreground: <neutral-950 in oklch>;
+  --primary: <brand-600 in oklch>;
+  --primary-foreground: <neutral-50 in oklch>;
+  --secondary: <neutral-100 in oklch>;
+  --secondary-foreground: <neutral-900 in oklch>;
+  --muted: <neutral-100 in oklch>;
+  --muted-foreground: <neutral-500 in oklch>;
+  --accent: <neutral-100 in oklch>;
+  --accent-foreground: <neutral-900 in oklch>;
+  --destructive: <danger-600 in oklch>;
+  --destructive-foreground: <neutral-50 in oklch>;
+  --border: <neutral-200 in oklch>;
+  --input: <neutral-200 in oklch>;
+  --ring: <brand-600 in oklch>;
   --radius: <radius-md>;
 }
 .dark { /* mirrored for dark mode */ }
 ```
+
+OKLCH preserves perceptual uniformity better than HSL — equal lightness steps look equal to the eye. Tools: `culori` (npm) for HSL ↔ OKLCH conversion, or `oklch.com` for hand picking.
 
 ## Refactoring UI rules to remember
 

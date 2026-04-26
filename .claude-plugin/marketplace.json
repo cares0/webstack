@@ -1,10 +1,24 @@
 {
-  "display_name": "webstack",
-  "tagline": "Brand-driven fullstack scaffolding with contract-first APIs and free-tier infra",
-  "categories": ["fullstack", "scaffolding", "design-system", "iac"],
-  "screenshots": [],
-  "install_command": "/plugin install webstack",
-  "long_description": "webstack guides you through a structured fullstack build cycle: brand identity & persona interview → design system extraction (tokens + ShadCN theme + component variants) → multi-repo scaffolding (NextJS frontend, Spring/Kotlin backend, Terraform infrastructure) → parallel feature development with git worktrees → OpenAPI 3.1 contract-first sync → Hexagonal/DDD backend implementation with KoTest BehaviorSpec → NextJS App Router frontend with @hey-api/openapi-ts codegen → free-tier deploy (Vercel + Oracle Cloud + Supabase) via Terraform IaC. Designed as a plug-in friendly architecture: shared/ holds tech-agnostic methodologies (DDD, TDD, brand identity), docs/ holds tech-specific guides — swap docs/ to support a different stack.",
-  "supported_environments": ["claude-code"],
-  "documentation_url": "https://github.com/<user>/webstack/blob/main/README.md"
+  "name": "webstack-marketplace",
+  "description": "Single-plugin marketplace shipping the webstack fullstack scaffolding harness",
+  "owner": {
+    "name": "YoungJun Kim",
+    "email": "cares00000@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "webstack",
+      "description": "Brand-driven fullstack scaffolding with contract-first APIs (OpenAPI 3.1) and free-tier infra (Vercel + Oracle Cloud Always Free + Supabase + Terraform). Stack: NextJS App Router + ShadCN + Tailwind v4 / Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "YoungJun Kim",
+        "email": "cares00000@gmail.com"
+      },
+      "homepage": "https://github.com/<user>/webstack",
+      "license": "MIT",
+      "categories": ["fullstack", "scaffolding", "design-system", "iac"],
+      "keywords": ["nextjs", "spring", "kotlin", "ddd", "openapi", "terraform", "vercel", "oracle-cloud", "supabase"]
+    }
+  ]
 }

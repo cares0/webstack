@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-04-26
 
+### Deferred to v0.2
+
+- Destructive-bash hooks (`rm -rf` / `git push --force` confirmation gating). Spec §13 originally listed PreToolUse hooks for "위험한 명령" but v0.1 ships secret-isolation hooks only (block_env_read.py + block_env_bash.py). Destructive-bash protection arrives in v0.2.
+- Pact consumer-driven contract testing — drift detection via springdoc only in v0.1.
+- Accessibility auditor SubAgent (WCAG checks).
+- DB schema designer / migration planner / infra cost estimator SubAgents.
+- Real-provider API integration tests (would burn quota; manual sandbox only).
+- Pre-commit secret scanning (gitleaks/trufflehog) auto-setup — flagged as SUGGESTION only.
+- Remote Terraform backend (Supabase Postgres / S3-compatible).
+
 ### Added
 
 - Initial plugin skeleton: `.claude-plugin/plugin.json`, `marketplace.json`

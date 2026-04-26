@@ -12,11 +12,15 @@
 
 ## Install
 
-```
-/plugin install webstack
+```text
+# 1. Add this marketplace (one-time, replace <git-url> with the actual webstack repo URL):
+/plugin marketplace add <git-url>
+
+# 2. Install the plugin from the marketplace:
+/plugin install webstack@webstack-marketplace
 ```
 
-(Or clone this repo and place under your `~/.claude/plugins/` path per Claude Code plugin docs.)
+The marketplace name is `webstack-marketplace` (declared in `.claude-plugin/marketplace.json`); the plugin name is `webstack`. If you cloned the repo locally, point `marketplace add` at the local path. Per Claude Code's plugin docs, the marketplace add step is required before any `plugin install` will resolve.
 
 ## Quick start
 

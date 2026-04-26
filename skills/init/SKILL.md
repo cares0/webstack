@@ -168,7 +168,32 @@ Checkpoint: "Backend repo created. Proceed to infrastructure?"
 5. Write empty stub `vercel.tf`, `oracle.tf`, `supabase.tf` with comments — they get populated by user/agent in `/webstack:infra`.
 6. Write `.env.template` (placeholders only — see spec §10.2).
 7. Write `.gitignore` covering `.env*`, `.terraform/`, `*.tfstate*`, `*.tfvars*`.
-8. Write `.claude/settings.local.json` with deny rules (see spec §10.2).
+8. Write `.claude/settings.local.json` with these exact deny patterns (the security contract — embed verbatim, do not improvise):
+
+   ```json
+   {
+     "permissions": {
+       "deny": [
+         "Read(./.env)",
+         "Read(./.env.local)",
+         "Read(**/.env)",
+         "Read(**/.env.local)",
+         "Bash(cat .env*)",
+         "Bash(printenv *_TOKEN)",
+         "Bash(printenv *_KEY)",
+         "Bash(printenv *_SECRET)",
+         "Bash(printenv *_PASSWORD)",
+         "Bash(env)",
+         "Bash(env|grep -i token)",
+         "Bash(env|grep -i key)",
+         "Bash(env|grep -i secret)",
+         "Bash(echo $*_TOKEN)"
+       ]
+     }
+   }
+   ```
+
+   These 14 patterns + the plugin's `hooks/hooks.json` PreToolUse rules form a layered defense: deny rules block at Claude Code permission layer, hooks block at the helper-script layer. Both must agree — do not weaken either.
 9. Write `SETUP.md` (use `docs/infrastructure/setup-guide.md` as template; substitute `<project>` placeholders with the actual project name).
 10. Initial commit + push.
 

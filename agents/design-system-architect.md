@@ -51,13 +51,13 @@ Bash for: `oklch` color computation via `python3` if needed.
 9. Set radius preset (sm=brutalist, md=default, lg=friendly).
 10. Set shadow preset (none/subtle/elevated).
 11. Set motion preset (subtle/standard/playful), respect prefers-reduced-motion.
-12. Write `tokens.json` (structured), `theme.css` (HSL CSS variables for ShadCN :root + .dark), `component-variants.md` (Button, Card, Input, Badge, Dialog initial variants with cva snippets).
+12. Write `tokens.json` (structured), `theme.css` (OKLCH CSS variables for ShadCN :root + .dark — modern ShadCN generators emit `oklch(...)` since late 2024; preserve OKLCH end-to-end for color fidelity and easier `prefers-color-scheme` handling), `component-variants.md` (Button, Card, Input, Badge, Dialog initial variants with cva snippets).
 13. Verify: contrast pairs (foreground vs background, primary-foreground vs primary, destructive-foreground vs destructive) all >= AA.
 
 ## Outputs (files written)
 
 - `tokens.json` (schema in spec §8.4)
-- `theme.css` — `:root { --color-... }` + `.dark { ... }` blocks. HSL format for ShadCN compatibility.
+- `theme.css` — `:root { --color-... }` + `.dark { ... }` blocks. OKLCH format (current ShadCN convention); the build-fe Server Component pipeline reads CSS variables directly without color-space conversion.
 - `component-variants.md` — Markdown with cva snippets ready to copy into frontend repo.
 
 Plus: a final response message summarizing choices for main to confirm with user (3-5 sentences).
@@ -70,5 +70,5 @@ If contrast cannot reach AA with chosen colors: report the conflict, propose 2 a
 ## Style
 
 - Tokens are decisions, not options — choose, don't enumerate. The user can change later.
-- All CSS variables in HSL (ShadCN convention) even though OKLCH was used internally.
+- All CSS variables in OKLCH (current ShadCN convention; legacy HSL projects can convert at copy time using `culori` or similar — but emit OKLCH from this agent).
 - Comment the theme.css with which token came from where (for traceability).
