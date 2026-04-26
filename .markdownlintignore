@@ -1,0 +1,15 @@
+# webstack design docs (spec + implementation plan)
+# These embed verbatim copies of plugin file contents (skills/agents/etc.)
+# inline as code blocks for traceability. The embedded content's headings,
+# numbered lists, fenced code blocks, etc. legitimately violate top-level
+# document conventions (MD024 duplicate heading, MD025 multiple H1, MD029
+# ol-prefix, MD036 emphasis-as-heading, MD001 heading-increment) — these
+# are properties of the embedded plugin file structure, not authoring
+# defects in the design doc. The actual plugin files (skills/, agents/, etc.)
+# are linted normally.
+docs/superpowers/
+
+# node_modules / .git already ignored by --ignore in CI; listed here for
+# completeness when running markdownlint without flags.
+node_modules/
+.git/
