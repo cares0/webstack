@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Lint markdown
+        run: markdownlint '**/*.md' --ignore node_modules --ignore .git
+
+      - name: Lint JSON
+        run: |
+          set -e
+          for f in $(find . -name '*.json' -not -path './node_modules/*' -not -path './.git/*'); do
+            python3 -c "import json; json.load(open('$f'))" || (echo "FAIL: $f" && exit 1)
+          done
+
+      - name: Lint YAML
+        run: |
+          pip install pyyaml
+          set -e
+          for f in $(find . \( -name '*.yaml' -o -name '*.yml' \) -not -path './node_modules/*' -not -path './.git/*'); do
+            python3 -c "import yaml; yaml.safe_load(open('$f'))" || (echo "FAIL: $f" && exit 1)
+          done
+
+      - name: Validate plugin metadata
+        run: |
+          python3 -c "
+          import json
+          plugin = json.load(open('.claude-plugin/plugin.json'))
+          required = ['name','version','description','author','license']
+          for k in required:
+              assert k in plugin, f'Missing required field: {k}'
+          print('plugin.json: all required fields present')
+
+          marketplace = json.load(open('.claude-plugin/marketplace.json'))
+          for k in ['display_name','tagline','categories']:
+              assert k in marketplace, f'Missing required field in marketplace.json: {k}'
+          print('marketplace.json: all required fields present')
+          "
