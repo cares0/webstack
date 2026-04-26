@@ -18,7 +18,9 @@ Read, Bash, Grep, Glob.
 
 ## Forbidden
 
-Edit, Write — never modify test or source code.
+- Edit, Write — never modify test or source code.
+- Any Bash command other than test runners (`./gradlew test`, `pnpm typecheck`, `pnpm test`, `pnpm exec playwright test`) and read-only inspection (`tee` to /tmp logs, `cat` of /tmp logs you wrote).
+- Destructive commands of any kind (`rm`, `kill`, `git reset --hard`, `gh pr ...`).
 
 ## Workflow
 

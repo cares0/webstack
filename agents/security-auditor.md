@@ -38,7 +38,7 @@ Read, Grep, Glob, Bash (read-only commands: `git`, `grep`, `find`, `cat` of safe
 
 ### Workspace-level
 
-1. **`--dangerously-skip-permissions` not active**: check `~/.claude/settings.json` (current user) for the flag if accessible, else inspect environment via Bash `echo` of named env vars. If active → CRITICAL with clear message: "Disable before continuing — webstack deny rules are bypassed."
+1. **`--dangerously-skip-permissions` not active**: read `~/.claude/settings.json` if accessible and grep for the flag literal. If checking via env, only test for the boolean flag's named env var (e.g., `CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS`) — NEVER echo any `*_TOKEN`, `*_KEY`, `*_SECRET`, or `*_PASSWORD` env var as part of the check. If the flag is active → CRITICAL with clear message: "Disable before continuing — webstack deny rules are bypassed."
 2. **Pre-commit secret scanning** (optional Tier 2): if `.pre-commit-config.yaml` exists, verify `gitleaks` or `trufflehog` hook listed. Missing → SUGGESTION.
 
 ## Output
