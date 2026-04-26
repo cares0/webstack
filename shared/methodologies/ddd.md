@@ -123,7 +123,7 @@ class TransferFundsService(
 ## When NOT to apply DDD
 
 - CRUD-only services with no behavior — anemic model is fine.
-- 1차 webstack 1인 사용 시점에 무거운 boundary는 과함 — Spring Modulith로 시작, 나중에 분리.
+- For v1 (single-user webstack), heavy bounded-context boundaries are overkill — start with Spring Modulith, split later.
 
 ## References
 

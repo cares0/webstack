@@ -47,7 +47,7 @@ Each cycle is 2-5 minutes. Frequent commits at GREEN.
 
 ## When TDD is relaxed
 
-- Throwaway prototypes (none in 1차 출시).
+- Throwaway prototypes (none in v1 release).
 - Pure config files (plugin.json, marketplace.json, theme.css).
 - Generated code (`@hey-api/openapi-ts` output) — covered by upstream lib's tests.
 

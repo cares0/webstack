@@ -72,4 +72,5 @@ Each repo gets stack-specific `.gitignore`:
 ## References
 
 - Conventional Commits: https://www.conventionalcommits.org/
-- Linus Torvalds, "On rebase vs merge" (Linux kernel mailing list, 2009).
+- Atlassian, "Merging vs. Rebasing": https://www.atlassian.com/git/tutorials/merging-vs-rebasing
+- Pro Git, §3.6 "Rebasing": https://git-scm.com/book/en/v2/Git-Branching-Rebasing

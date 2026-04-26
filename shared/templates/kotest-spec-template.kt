@@ -9,7 +9,6 @@ package com.example.<project>.domain.<aggregate>
 
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.should
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.assertions.throwables.shouldThrow
 

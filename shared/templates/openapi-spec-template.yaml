@@ -32,7 +32,7 @@ paths:
           schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
         - name: cursor
           in: query
-          schema: { type: string, nullable: true }
+          schema: { type: [string, "null"] }
       responses:
         '200':
           description: success
@@ -115,8 +115,7 @@ components:
           items:
             $ref: '#/components/schemas/<Resource>'
         nextCursor:
-          type: string
-          nullable: true
+          type: [string, "null"]
 
     Error:
       type: object
