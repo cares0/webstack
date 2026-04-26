@@ -130,7 +130,7 @@ webstack/                                              # plugin root = repo root
 
 - [ ] **Step 1: Define expected behavior**
 
-`plugin.json`은 Claude Code marketplace가 plugin metadata 인식. 필수 필드: `name`(kebab-case, 충돌 없음), `version`(semver), `description`(150자 이하), `author`, `license`. webstack 1차이므로 v0.1.0.
+`plugin.json`은 Claude Code marketplace가 plugin metadata 인식. 필수 필드: `name`(kebab-case, 충돌 없음), `version`(semver), `description`(marketplace 검색·표시용, 길이 제한 없음 — long-form이 디스커버리에 유리), `author`, `license`. webstack 1차이므로 v0.1.0.
 
 - [ ] **Step 2: Write file**
 
@@ -266,8 +266,8 @@ npm 패키지가 아니라 메타용. plugin name, version mirror + scripts(lint
   "description": "Fullstack web service harness for Claude Code (plugin metadata mirror)",
   "scripts": {
     "lint:md": "markdownlint '**/*.md' --ignore node_modules",
-    "lint:json": "find . -name '*.json' -not -path './node_modules/*' -exec python3 -c \"import json,sys; json.load(open(sys.argv[1]))\" {} \\;",
-    "lint:yaml": "find . -name '*.yaml' -o -name '*.yml' -not -path './node_modules/*' | xargs -I{} python3 -c \"import yaml,sys; yaml.safe_load(open('{}'))\"",
+    "lint:json": "find . -name '*.json' -not -path './node_modules/*' -not -path './.git/*' -exec python3 -c \"import json,sys; json.load(open(sys.argv[1]))\" {} \\;",
+    "lint:yaml": "find . \\( -name '*.yaml' -o -name '*.yml' \\) -not -path './node_modules/*' -not -path './.git/*' | xargs -I{} python3 -c \"import yaml,sys; yaml.safe_load(open('{}'))\"",
     "test:scenarios": "echo 'Run tests/scenarios/*.md manually in Claude Code session'"
   },
   "repository": {
