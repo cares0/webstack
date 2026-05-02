@@ -1,4 +1,4 @@
-# Scenario 03: /webstack:infra (mocked terraform)
+# Scenario 03: /webstack:infra (mocked OpenTofu)
 
 Verifies the infra skill's pre-flight + plan + analyze + confirm + apply gating.
 
@@ -8,14 +8,14 @@ Scenario 01 ran. `myapp-infrastructure/` exists with stub `.tf` files.
 
 ## Setup
 
-Mock terraform:
+Mock OpenTofu:
 
 ```bash
-# Replace real `terraform` with a mock that returns canned plan output.
+# Replace real `tofu` with a mock that returns canned plan output.
 # The mock recognizes specific arguments and emits expected JSON or text.
-# See tests/fixtures/mock-terraform.sh (Tier 2; for 1차, you can inline or skip).
+# See tests/fixtures/mock-tofu.sh (Tier 2; for 1차, you can inline or skip).
 
-# For 1차 manual run: skip terraform actually being called, follow flow up to confirmation gate, then say "cancel".
+# For 1차 manual run: skip `tofu` actually being called, follow flow up to confirmation gate, then say "cancel".
 ```
 
 ## Steps
@@ -39,10 +39,10 @@ set -a && source .env && set +a
   - Expected: PASS — .env exists, gitignored, deny rules present, no secrets in source.
   - Expected: env vars verified exported (test -n "$VERCEL_TOKEN") without revealing values.
 
-- [ ] **P1 terraform plan**: agent runs `terraform init` + `terraform plan -out=plan.tfplan`.
-  - With mock: agent should emit the expected commands. With real terraform: it will fail provider auth (mock token); that's OK — the test ends here and we verify the agent's behavior up to this point.
+- [ ] **P1 tofu plan**: agent runs `tofu init` + `tofu plan -out=plan.tfplan`.
+  - With mock: agent should emit the expected commands. With real OpenTofu: it will fail provider auth (mock token); that's OK — the test ends here and we verify the agent's behavior up to this point.
 
-- [ ] **P2 plan analysis**: invokes terraform-plan-analyzer (only if P1 produced a plan file).
+- [ ] **P2 plan analysis**: invokes tofu-plan-analyzer (only if P1 produced a plan file).
   - For mock-failed case: agent surfaces error and stops gracefully.
 
 - [ ] **P3 Confirmation gate**: agent presents plan summary, asks for `apply`.
@@ -57,7 +57,7 @@ set -a && source .env && set +a
 
 - security-auditor invoked at P0.
 - Confirmation gate reached and respects `cancel`.
-- No `terraform apply` runs without explicit confirmation.
+- No `tofu apply` runs without explicit confirmation.
 - Manifest unchanged on cancel.
 
 <!-- script: 03-infra-static-assertions

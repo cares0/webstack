@@ -4,7 +4,7 @@
 
 ## What ShadCN is (and isn't)
 
-ShadCN UI is **not** a component library you install from npm. It is a CLI that copies pre-built React component source code (built on Radix primitives + Tailwind utility classes) into your repo. After install, the components live under `src/components/ui/` and you own them — edit, delete, restyle freely. There is no version lockstep with an upstream package; the "library" is whatever you copied at the time you ran the CLI.
+ShadCN UI is **not** a component library you install from npm. It is a CLI that copies pre-built React component source code (built on Radix primitives + Tailwind utility classes) into your repo. After install, the components live under whatever path the `components.json` `aliases.ui` field points to — webstack's convention is `src/shared/ui/` (the FSD-lite `shared` layer; the ShadCN default `src/components/ui/` is overridden in init). You own the files: edit, delete, restyle freely. There is no version lockstep with an upstream package; the "library" is whatever you copied at the time you ran the CLI.
 
 This trade-off matters for webstack:
 
@@ -49,14 +49,16 @@ This file is read every time the CLI generates a component. Fields:
     "prefix": ""
   },
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@/shared/ui",
+    "utils": "@/shared/lib/utils",
+    "ui": "@/shared/ui",
+    "lib": "@/shared/lib",
+    "hooks": "@/shared/hooks"
   }
 }
 ```
+
+**webstack note**: the aliases above point at `src/shared/...` because webstack's FSD-lite layer system places ShadCN primitives in the FSD `shared` layer (see `docs/frontend/fsd-architecture.md`). If you generate this `components.json` via `npx shadcn init`, override the prompts to use these aliases (or edit the file after init). The `components` alias and `ui` alias both target `@/shared/ui` — `npx shadcn add` writes new primitives to `src/shared/ui/`.
 
 - `style`: `new-york` is the modern default (sharper edges, denser); `default` is the legacy v1 style and rarely picked for new projects. Pick one and lock it.
 - `rsc: true`: emits Server-Component-aware files (no top-of-file `'use client'` unless required).
@@ -151,11 +153,11 @@ export function Button({ className, variant, size, ...props }: ButtonProps) {
 npx shadcn@latest add button card dialog input form
 ```
 
-Each component lands under `src/components/ui/`. The CLI also installs any required deps (e.g., `@radix-ui/react-dialog`, `@hookform/resolvers`). Once the file is in your repo, treat it as your code: edit the `cva` config, swap Radix primitives, restyle freely. Re-running `add` for the same component will prompt to overwrite, so back up local edits first.
+Each component lands under the path declared in `components.json` `aliases.ui` — webstack's `src/shared/ui/`. The CLI also installs any required deps (e.g., `@radix-ui/react-dialog`, `@hookform/resolvers`). Once the file is in your repo, treat it as your code: edit the `cva` config, swap Radix primitives, restyle freely. Re-running `add` for the same component will prompt to overwrite, so back up local edits first.
 
 ## Custom variants per webstack identity
 
-The design-system-architect SubAgent emits `design-system/component-variants.md` (and a JSON sibling) describing brand-specific variants beyond ShadCN defaults — e.g., a `tonal` button, a `compact` card, a destructive-but-quiet alert. The build-fe SubAgent extends the corresponding `cva` block in `src/components/ui/<component>.tsx`:
+The design-system-architect SubAgent emits `design-system/component-variants.md` (and a JSON sibling) describing brand-specific variants beyond ShadCN defaults — e.g., a `tonal` button, a `compact` card, a destructive-but-quiet alert. The build-fe SubAgent extends the corresponding `cva` block in `src/shared/ui/<component>.tsx`:
 
 ```tsx
 const buttonVariants = cva('...', {
@@ -177,7 +179,7 @@ ShadCN's interactive components (Dialog, DropdownMenu, Tooltip, Popover, Select,
 
 ```tsx
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger } from '@/shared/ui/dialog';
 
 // Add a left-anchored variant by overriding DialogContent's positioning
 export function DialogSheetContent({ children, ...props }: DialogPrimitive.DialogContentProps) {
@@ -193,11 +195,15 @@ When ShadCN doesn't ship a primitive you need (e.g., `@radix-ui/react-toggle-gro
 
 ## webstack convention
 
-- All ShadCN-generated UI primitives live at `src/components/ui/`.
-- Feature-specific compositions of those primitives live at `src/components/<feature>/` (e.g., `src/components/projects/ProjectCard.tsx`).
-- The OpenAPI-generated TypeScript SDK lives at `src/api/generated/` and is gitignored or marked generated; design-system-architect and code-reviewer skip it.
-- `theme.css` and any custom `cva` extensions are tracked under `src/app/globals.css` and `src/components/ui/<component>.tsx` respectively; never duplicated.
-- When ShadCN ships an upstream improvement to a component already vendored, the build-fe SubAgent regenerates the file, then re-applies webstack-specific cva variants from `design-system/component-variants.md`.
+webstack frontends use FSD-lite (see `docs/frontend/fsd-architecture.md`); ShadCN integration follows the layer placement:
+
+- All ShadCN-generated UI primitives live at `src/shared/ui/`. (`components.json` aliases `ui` and `components` both point to `@/shared/ui`.)
+- Composite UI for a domain entity (e.g., `<ProjectCard>`) lives at `src/entities/<entity>/ui/` and imports primitives from `@/shared/ui`.
+- Composite UI for a user action / feature (e.g., `<CreateProjectForm>`) lives at `src/features/<feature>/ui/` and imports both primitives from `@/shared/ui` and entity components from `@/entities/<entity>` as needed.
+- Page-level chrome (header, sidebar, dashboard layout) lives at `src/widgets/<widget>/`.
+- The OpenAPI-generated TypeScript SDK lives at `src/shared/api/generated/` and is gitignored or marked generated; design-system-architect and code-reviewer skip it.
+- `theme.css` and any custom `cva` extensions are tracked under `src/app/globals.css` and `src/shared/ui/<component>.tsx` respectively; never duplicated.
+- When ShadCN ships an upstream improvement to a component already vendored, the build-fe SubAgent regenerates the file at `src/shared/ui/<component>.tsx`, then re-applies webstack-specific cva variants from `design-system/component-variants.md`.
 
 ## Sources
 
@@ -205,3 +211,5 @@ When ShadCN doesn't ship a primitive you need (e.g., `@radix-ui/react-toggle-gro
 - ShadCN theming: https://ui.shadcn.com/docs/theming
 - class-variance-authority: https://cva.style/docs
 - Radix UI primitives: https://www.radix-ui.com/primitives
+
+Last verified: 2026-04-26 (ShadCN CLI 2.x stable, "new-york" default style, OKLCH color tokens).

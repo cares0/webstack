@@ -5,6 +5,12 @@ info:
   description: |
     Generated from `.webstack/features/<feature>/plan.md` by /webstack:feature P3.
     Single source of truth — frontend codegen and backend implementation derive from this.
+
+    NOTE: webstack does not bundle authentication. If this feature requires auth,
+    add a `securitySchemes.bearerAuth` (or similar) entry under `components` and a
+    `security: [{ bearerAuth: [] }]` block at the operation or document level, and
+    declare `'401'` responses where applicable. See `docs/recipes/spring-security-auth.md`
+    for the recommended Spring Security implementation.
 servers:
   - url: http://localhost:8080
     description: Local dev
@@ -16,9 +22,6 @@ servers:
 tags:
   - name: <resource>
     description: <one line>
-
-security:
-  - bearerAuth: []
 
 paths:
   /<resource>:
@@ -40,7 +43,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/<Resource>List'
-        '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [<resource>]
@@ -60,7 +62,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/<Resource>'
         '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -82,15 +83,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/<Resource>'
         '404': { $ref: '#/components/responses/NotFound' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
   schemas:
     <Resource>:
       type: object
@@ -130,11 +124,6 @@ components:
   responses:
     BadRequest:
       description: Bad request — request shape invalid
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
-    Unauthorized:
-      description: Missing or invalid authentication
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }

@@ -122,8 +122,20 @@ class TransferFundsService(
 
 ## When NOT to apply DDD
 
-- CRUD-only services with no behavior — anemic model is fine.
-- For v1 (single-user webstack), heavy bounded-context boundaries are overkill — start with Spring Modulith, split later.
+DDD's overhead — aggregate boundaries, repository ports, value objects, domain events, ubiquitous language discipline — only pays off when the domain has genuine complexity. Mismatched application of DDD slows MVP throughput without any of the long-term benefits.
+
+Skip DDD (or apply it sparingly) when:
+
+- **CRUD-only services** with no behavior — anemic model is fine. A "save row, read row, edit row, delete row" admin tool gets nothing from aggregates.
+- **Single-actor utilities** without invariants worth defending. A todo list app for one user has no concurrency edge cases that an aggregate root would prevent.
+- **Throwaway prototypes** with a known short lifespan. The value of DDD shows up at refactor time; if there is no refactor, there is no payoff.
+- **First feature of a product where the domain isn't understood yet.** "DDD before discovery" produces fictional aggregates that need rework once real users land. Build the simplest thing, learn the domain, then introduce DDD where complexity warrants.
+
+For webstack's target — a **1-person greenfield project aspiring to public marketplace usage** — DDD/Hexagonal/Modulith carries non-trivial boilerplate cost (3-4 abstraction layers per BC, mapping code at every boundary, ubiquitous language reviews). The trade-off: a project that **does** scale to a marketplace will have already paid the refactor cost upfront, and the architecture is set up for multiple developers and bounded contexts. webstack accepts the cost on purpose.
+
+If you are 100% sure the project will stay 1-person + 1-domain forever, you can run thinner: a single Modulith module with conventional `@Service` + `@Repository` Spring code, no separate domain layer, JPA entities used directly. webstack's `feature-architect` SubAgent will flag the cost up-front during the initial feature mapping; the user can choose "thin" vs "full DDD" per feature in webstack v2 (v1 always emits full DDD).
+
+The honest framing: full DDD is **insurance against future complexity**. If the future is certain to stay simple, you don't need the insurance.
 
 ## References
 
@@ -131,3 +143,5 @@ class TransferFundsService(
 - Vernon, *Implementing Domain-Driven Design*, Addison-Wesley (2013).
 - Vernon, "Effective Aggregate Design" (3-part article).
 - https://martinfowler.com/bliki/BoundedContext.html
+
+Last verified: 2026-04-26.

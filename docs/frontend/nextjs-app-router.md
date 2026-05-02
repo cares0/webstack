@@ -1,6 +1,6 @@
 # Next.js App Router
 
-> Reference for `build-fe` SubAgent and frontend-implementer. Covers the file-based routing model introduced in Next.js 13 and stabilized through Next.js 15+.
+> Reference for `build-fe` SubAgent and frontend-implementer. Covers the file-based routing model introduced in Next.js 13, stabilized through Next.js 15, and refined in Next.js 16+ (current stable as of 2026-04-26).
 
 ## Why App Router (vs Pages Router)
 
@@ -8,7 +8,7 @@ The App Router is built on top of React Server Components (RSC). Files under `ap
 
 Layouts in the App Router compose by nesting. Each `layout.tsx` segment wraps everything below it without re-rendering when navigating between sibling routes. The Pages Router did not preserve layout state across navigation; the App Router does. The same shift gives streaming via `loading.tsx` and granular error isolation via `error.tsx` per segment, which Pages Router could not express without bespoke `_app.tsx` plumbing.
 
-For new projects in 2025+, the Pages Router is in maintenance mode. webstack assumes the App Router for all generated frontend repos.
+For new projects in 2026, the Pages Router is in maintenance mode (long-term security fixes only). webstack assumes the App Router for all generated frontend repos and pins the Next.js dependency to the latest 16.x stable at scaffold time.
 
 ## Folder structure
 
@@ -70,19 +70,49 @@ Layouts are Server Components by default, which lets them perform server-side da
 A folder wrapped in parentheses, like `(marketing)`, is a route group. It groups files for organization or layout segmentation without contributing a path segment. Two common uses:
 
 1. Apply a different layout to a subtree without nesting URLs (e.g., a marketing layout for `/about` and `/pricing` separate from the dashboard layout).
-2. Co-locate related routes that share concerns (e.g., `(auth)/login`, `(auth)/signup`).
+2. Co-locate related routes that share concerns (e.g., `(marketing)/about`, `(marketing)/pricing`).
 
 ## Dynamic segments
 
-In Next.js 15+, `params` is a Promise and must be awaited:
+In Next.js 15+, `params` is a Promise. Server Components await it; Client Components unwrap it with React's `use()` hook.
+
+Server Component:
 
 ```tsx
-// app/projects/[projectId]/page.tsx
+// src/app/projects/[projectId]/page.tsx — Server Component (default)
 type Params = Promise<{ projectId: string }>;
 
 export default async function Page({ params }: { params: Params }) {
   const { projectId } = await params;
   return <ProjectDetail id={projectId} />;
+}
+```
+
+Client Component (when the dynamic segment must be read inside a `'use client'` component — e.g., for client-side data fetching with TanStack Query):
+
+```tsx
+// src/app/projects/[projectId]/ProjectClient.tsx
+'use client';
+import { use } from 'react';
+
+type Params = Promise<{ projectId: string }>;
+
+export function ProjectClient({ params }: { params: Params }) {
+  const { projectId } = use(params);
+  // safe to use projectId in hooks below
+  return <InteractiveProjectView id={projectId} />;
+}
+```
+
+`use(params)` is React 19's mechanism for unwrapping a Promise inside a Client Component; it suspends the component until the value resolves and integrates with the surrounding `<Suspense>` boundary. Server Components keep using `await params` because they execute in async server contexts.
+
+For pre-rendering dynamic routes (SSG), declare the parameter set with `generateStaticParams`:
+
+```tsx
+// src/app/projects/[projectId]/page.tsx
+export async function generateStaticParams() {
+  const projects = await listAllProjectIds();
+  return projects.map((p) => ({ projectId: p.id }));
 }
 ```
 
@@ -234,10 +264,22 @@ Use Route Handlers for webhooks, OAuth callbacks, file uploads, or proxying to t
 
 ## webstack convention
 
-In webstack-generated frontend repos, each feature corresponds to a single route group: `app/(<feature>)/...`. Related pages, parallel slots, and intercepting routes for that feature stay co-located. Route Handlers under `app/api/` are reserved for FE-only concerns (webhook receivers, BFF proxies, NextAuth callbacks). For domain operations the backend exposes them via OpenAPI; the frontend calls those generated SDKs (see `docs/frontend/tanstack-query.md`) rather than re-defining a Route Handler. Server Actions handle form mutations that don't need a public REST endpoint (see `docs/frontend/server-components.md`).
+webstack-generated frontend repos follow **FSD-lite** (see `docs/frontend/fsd-architecture.md`): five layers under `src/` — `app`, `widgets`, `features`, `entities`, `shared` — with a one-way import rule. Next.js App Router lives at `src/app/`; this directory simultaneously owns routing (Next.js's responsibility) and the FSD app-layer responsibilities (providers, root layout, global styles).
+
+Implications for App Router files:
+
+- `src/app/<segment>/page.tsx` is a thin orchestrator. It server-fetches data via the generated SDK or via entity queries, then composes `widgets/` and `features/` slices. Business logic does not live in `page.tsx`.
+- `src/app/layout.tsx` (root) wraps everything in `src/app/providers/` (Query, Theme, etc.) and applies global styles from `src/app/styles/`.
+- Route groups (`(marketing)`, `(dashboard)`, etc.) are still used for layout segmentation. They have no relationship to FSD slices — slices live under `src/features/` and `src/entities/`, not `src/app/`.
+- Parallel routes and intercepting routes stay where Next.js expects them under `src/app/`. The components they render are imported from `src/widgets/` or `src/features/`.
+- Route Handlers under `src/app/api/` are reserved for FE-only concerns (webhook receivers, BFF proxies, NextAuth callbacks). For domain operations the backend exposes them via OpenAPI; the frontend calls those generated SDKs (see `docs/frontend/tanstack-query.md`) rather than re-defining a Route Handler. Server Actions handle form mutations that don't need a public REST endpoint (see `docs/frontend/server-components.md`).
 
 ## Sources
 
 - Next.js App Router docs: https://nextjs.org/docs/app
+- Next.js dynamic routes (Server + Client patterns): https://nextjs.org/docs/app/api-reference/file-conventions/dynamic-routes
 - Next.js 15 release notes (async params): https://nextjs.org/blog/next-15
 - Next.js routing fundamentals: https://nextjs.org/docs/app/building-your-application/routing
+- React 19 `use()` API: https://react.dev/reference/react/use
+
+Last verified: 2026-04-26 (Next.js 16.x stable).

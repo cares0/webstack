@@ -125,7 +125,7 @@ In every webstack-generated frontend repo:
 - **Single CSS entrypoint:** `src/app/globals.css` contains `@import "tailwindcss"`, the `@theme {}` block (copied from `design-system/theme.css`), and any project-wide `@utility` definitions.
 - **No `tailwind.config.js`** unless a third-party JS plugin demands it — keep the source of truth in CSS.
 - **Theme tokens flow:** brand-identity-discovery → design-system-architect → `design-system/theme.css` → `globals.css`. Only modify the design-system source; do not edit `globals.css` directly except for utilities specific to the frontend.
-- **Generated SDK files** under `src/api/generated/` are excluded from Tailwind content scanning if they emit class strings (rare, but configure `@source not "src/api/generated/**";` if needed).
+- **Generated SDK files** under `src/shared/api/generated/` are excluded from Tailwind content scanning if they emit class strings (rare, but configure `@source not "src/shared/api/generated/**";` if needed).
 
 ## Sources
 
@@ -133,3 +133,5 @@ In every webstack-generated frontend repo:
 - Tailwind v4 announcement: https://tailwindcss.com/blog/tailwindcss-v4
 - Migration guide: https://tailwindcss.com/docs/upgrade-guide
 - Lightning CSS: https://lightningcss.dev
+
+Last verified: 2026-04-26 (Tailwind v4.x stable).

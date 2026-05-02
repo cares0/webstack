@@ -7,6 +7,21 @@
 > - Schwarz IT, "Contract first with SpringBoot"
 > - Baeldung, "API First Development with Spring Boot and OpenAPI 3.0"
 
+## Why OpenAPI 3.1 (not 3.0)
+
+webstack's default is **OpenAPI 3.1**, not 3.0. The single biggest reason is **JSON Schema alignment**:
+
+- OpenAPI 3.0 used a custom subset of JSON Schema with non-standard quirks (`nullable: true`, no full `oneOf`/`anyOf`/`if`/`then`, custom `discriminator` semantics). Every codegen tool had to implement the OpenAPI dialect separately from any standard JSON Schema validator.
+- OpenAPI 3.1 is a **strict superset** of JSON Schema 2020-12. Schemas are valid JSON Schema; Zod, Pydantic, ajv, and any other JSON Schema-aware tool can consume them directly. `nullable: true` is replaced by the standard `type: ["string", "null"]`, full `if`/`then`/`else` works, etc.
+
+For webstack the practical wins are:
+
+- `@hey-api/openapi-ts` emits richer / more accurate TypeScript and Zod schemas from 3.1 than from 3.0.
+- `springdoc-openapi` 2.8+ emits OpenAPI 3.1 by default for new projects, so the contract-drift check reads the same dialect both sides write.
+- Future tooling (validators, code-gen for other languages) is increasingly 3.1-first.
+
+If a downstream consumer **must** stay on 3.0 (legacy SDK generators, certain API gateways), keep two contracts: the source-of-truth `<feature>.yaml` in 3.1 and a derived 3.0 export. webstack v1 has no such consumers; we author 3.1 exclusively.
+
 ## The Principle
 
 The contract (OpenAPI YAML) is the **single source of truth**. Both ends — frontend and backend — derive from it. Divergence is impossible because:
@@ -22,13 +37,13 @@ plan-feature (P2)
   ▼
 sync-contract (P3) — write .webstack/contracts/<feature>.yaml
   │
-  ├─[FE codegen]─▶ src/api/generated/{types.ts, sdk.ts, queries.ts}
-  │              (frontend-implementer uses, never edits manually)
+  ├─[FE codegen]─▶ src/shared/api/generated/{types.ts, sdk.ts, queries.ts}
+  │              (frontend-implementer uses; FSD-lite places generated code in shared/api/; never edits manually)
   │
-  └─[BE direct write]─▶ DDD layered structure
-                        ├─ domain/<aggregate>/
-                        ├─ application/<usecase>/
-                        └─ infrastructure/http/<Resource>Controller.kt
+  └─[BE direct write]─▶ DDD layered structure inside the bounded-context module
+                        ├─ <module>/domain/<aggregate>/
+                        ├─ <module>/application/<usecase>/
+                        └─ <module>/infrastructure/http/<Resource>Controller.kt
                           (manual writing; codegen NOT used because of DDD divergence)
                         │
                         ▼
@@ -74,3 +89,6 @@ Source of truth in conflict: **contract YAML** wins. Implementation must adapt. 
 - https://medium.com/glovo-engineering/using-contract-first-to-build-an-http-application-with-openapi-and-gradle-53b42c2c2094
 - https://techblog.schwarz/posts/contract-first-with-springboot/
 - https://www.baeldung.com/spring-boot-openapi-api-first-development
+- JSON Schema 2020-12: https://json-schema.org/specification
+
+Last verified: 2026-04-26.

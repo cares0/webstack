@@ -1,12 +1,12 @@
 # Oracle Cloud Setup
 
-> Reference for the infra skill and terraform-plan-analyzer. Covers Oracle Cloud Infrastructure (OCI) Always Free sign-up, the Ampere A1 ARM compute shape, VCN networking, security lists, boot volumes, cloud-init, and `terraform-provider-oci`.
+> Reference for the infra skill and tofu-plan-analyzer. Covers Oracle Cloud Infrastructure (OCI) Always Free sign-up, the Ampere A1 ARM compute shape, VCN networking, security lists, boot volumes, cloud-init, and the `oracle/oci` IaC provider.
 
 ## Why Oracle Cloud for BE
 
 OCI's **Always Free** tier offers a uniquely generous compute allocation: up to **4 OCPU and 24 GB RAM total** of Arm-based Ampere A1 cores, persistent across the account's lifetime (not a 12-month trial). For a Spring Boot backend in dev/staging — and often in early production — this is enough for the whole stack.
 
-Most other clouds either limit free compute to a small x86 burst instance (AWS t2.micro, GCP e2-micro) or hide free credits behind a 12-month expiration. OCI's Always Free is meaningfully different. The trade-off is operational maturity: tooling, docs, and ecosystem lag behind AWS/GCP. webstack's Terraform-first approach largely sidesteps the docs gap.
+Most other clouds either limit free compute to a small x86 burst instance (AWS t2.micro, GCP e2-micro) or hide free credits behind a 12-month expiration. OCI's Always Free is meaningfully different. The trade-off is operational maturity: tooling, docs, and ecosystem lag behind AWS/GCP. webstack's IaC-first approach (OpenTofu) largely sidesteps the docs gap.
 
 ## Always Free limits
 
@@ -23,6 +23,24 @@ webstack uses Compute (Ampere A1) for the backend and skips OCI's database in fa
 
 Limits and inclusions can change; the canonical reference is the Oracle Always Free document linked in **Sources** below. Verify current allowances before provisioning if numbers matter for your decision.
 
+## Resource reclamation prevention (do not skip)
+
+OCI **may reclaim Always Free resources** that have been idle for an extended period. The exact threshold is documented as approximately 7 days of idleness for the underlying VM and several months for inactive accounts; the policy is at https://www.oracle.com/cloud/free/faq/. Reclamation deletes the VM and its boot volume — recovery requires re-running `/webstack:infra` to recreate the resources, then re-running `/webstack:deploy` to re-upload the jar.
+
+For a solo developer who launches webstack and steps away (e.g., between feature pushes for a few weeks), this is the single most likely failure mode for an otherwise-zero-cost stack. Two cheap mitigations:
+
+1. **Periodic OCI Console activity**: log into https://cloud.oracle.com at least monthly. Browsing the Compute or Networking pages counts as activity.
+2. **Health-check cron from outside OCI**: a cron job on any other always-on machine (a different cloud, a NAS, a Raspberry Pi) that hits the app's health endpoint:
+
+   ```bash
+   # crontab entry — every 30 minutes
+   */30 * * * * curl -fsS https://<api-domain>/actuator/health > /dev/null 2>&1
+   ```
+
+   The HTTP traffic keeps the VM "active" from OCI's perspective and prevents reclamation.
+
+If you do not need always-on staging, accept reclamation as the cost of $0 and document the redeploy procedure in your runbook. webstack's `/webstack:infra` + `/webstack:deploy` together restore the full backend in a few minutes once tokens are re-exported.
+
 ## Sign-up
 
 1. Visit https://cloud.oracle.com/free.
@@ -38,18 +56,18 @@ Account activation typically completes in minutes. If approval is delayed, OCI e
 
 OCI's IAM hierarchy: **tenancy** → **compartments** → **users / groups / policies**. The tenancy is the root. Compartments organize resources for billing and access; users authenticate; policies grant permissions.
 
-For Terraform, **do not use the root user**. Create:
+For OpenTofu, **do not use the root user**. Create:
 
 1. A **compartment** for the project (e.g., `webstack-myapp`).
-2. A **user** for Terraform (e.g., `terraform-iac`).
+2. A **user** for IaC (e.g., `tofu-iac` or `iac-runner`).
 3. A **group** containing that user (e.g., `iac-administrators`).
 4. A **policy** granting the group `manage all-resources in compartment webstack-myapp`.
 
 Policies are written in OCI's policy language, not IAM JSON; the language is verbose but documented.
 
-## API key for Terraform
+## API key for OpenTofu
 
-Terraform authenticates via an **API signing key** — an RSA key pair where the public key is uploaded to OCI and the private key signs API requests.
+OpenTofu authenticates via an **API signing key** — an RSA key pair where the public key is uploaded to OCI and the private key signs API requests. (The same key works for any IaC tool that uses the OCI SDK.)
 
 1. Generate locally:
 
@@ -65,7 +83,7 @@ Terraform authenticates via an **API signing key** — an RSA key pair where the
 4. Copy the resulting **fingerprint** (e.g., `aa:bb:cc:...`).
 5. Note the **tenancy OCID**, **user OCID**, and **region** from the console.
 
-For Terraform, set:
+For OpenTofu, set:
 
 ```hcl
 provider "oci" {
@@ -218,9 +236,9 @@ runcmd:
 
 The systemd unit reads `/opt/app/app.env` for `DATABASE_URL`, `SUPABASE_*`, etc. webstack `/webstack:deploy` SCPs the jar and the env file, then `systemctl restart webstack-app`.
 
-## terraform-provider-oci
+## oracle/oci provider
 
-The official `oracle/oci` provider covers the entire OCI surface. Common resources used by webstack:
+The official `oracle/oci` provider covers the entire OCI surface. The HCL is identical for OpenTofu and Terraform; the `terraform { ... }` block name is preserved by OpenTofu for portability. Common resources used by webstack:
 
 - `oci_core_vcn`, `oci_core_subnet`, `oci_core_internet_gateway`, `oci_core_route_table`.
 - `oci_core_security_list` or `oci_core_network_security_group` (NSG preferred — simpler rule attachment).
@@ -246,14 +264,16 @@ terraform {
 - **Provider config:** `infrastructure/main.tf` declares `oracle/oci` pinned to a major version. Auth via `var.oci_tenancy_ocid`, `var.oci_user_ocid`, `var.oci_fingerprint`, `var.oci_private_key_path`, `var.oci_region` — all in `variables.tf`. `var.oci_compartment_id` (typically equal to `var.oci_tenancy_ocid` for solo projects, scoping resources to the root compartment) and `var.oci_ssh_public_key_path` complete the OCI variable set.
 - **Compute resources:** `infrastructure/oracle.tf` provisions VCN, public subnet, security list/NSG, and one Ampere A1 instance running Ubuntu 22.04 ARM with cloud-init.
 - **Cloud-init:** `infrastructure/cloud-init.yaml` (referenced via `file()`) installs OpenJDK 21 and the systemd unit. The jar is deployed separately via SCP.
-- **Public IP** assigned at the VNIC level; the Terraform output exposes it for `/webstack:deploy` and DNS configuration.
+- **Public IP** assigned at the VNIC level; the OpenTofu output exposes it for `/webstack:deploy` and DNS configuration.
 - **Deployment loop:** `/webstack:deploy` SCPs `build/libs/app.jar` and an updated `app.env` to `/opt/app/`, then `ssh ... systemctl restart webstack-app`. No CI/CD pipeline in v1.
-- **Free-tier monitoring:** the infra skill checks `oci_core_instance` count and shape configurations against the 4 OCPU / 24 GB Always Free total before `terraform apply`.
+- **Free-tier monitoring:** the infra skill checks `oci_core_instance` count and shape configurations against the 4 OCPU / 24 GB Always Free total before `tofu apply`.
 
 ## Sources
 
 - OCI Always Free reference: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
-- terraform-provider-oci: https://registry.terraform.io/providers/oracle/oci/latest/docs
+- oracle/oci provider (OpenTofu Registry): https://search.opentofu.org/provider/oracle/oci/latest
 - Ampere A1 on OCI: https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm
 - OCI VCN concepts: https://docs.oracle.com/en-us/iaas/Content/Network/Concepts/overview.htm
 - API signing keys: https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
+
+Last verified: 2026-04-26.

@@ -45,16 +45,33 @@ jobs:
 
       - name: Validate plugin metadata
         run: |
-          python3 -c "
+          python3 - <<'PY'
           import json
-          plugin = json.load(open('.claude-plugin/plugin.json'))
-          required = ['name','version','description','author','license']
-          for k in required:
-              assert k in plugin, f'Missing required field: {k}'
-          print('plugin.json: all required fields present')
+          import sys
 
+          # plugin.json — schema per Claude Code Plugins reference.
+          # Required: name; recommended: version, description, author, license, repository, homepage.
+          plugin = json.load(open('.claude-plugin/plugin.json'))
+          for k in ('name', 'version', 'description', 'author', 'license'):
+              assert k in plugin, f'plugin.json missing recommended field: {k}'
+          assert isinstance(plugin['name'], str) and plugin['name'], 'plugin.json name must be non-empty string'
+          print('plugin.json: OK')
+
+          # marketplace.json — schema per Plugin Marketplaces reference.
+          # Top-level: name, owner, plugins (array). Each plugin entry needs name, description, source.
+          # source must be a string ("./") or object ({source, repo, ...}).
           marketplace = json.load(open('.claude-plugin/marketplace.json'))
-          for k in ['display_name','tagline','categories']:
-              assert k in marketplace, f'Missing required field in marketplace.json: {k}'
-          print('marketplace.json: all required fields present')
-          "
+          for k in ('name', 'owner', 'plugins'):
+              assert k in marketplace, f'marketplace.json missing required field: {k}'
+          assert isinstance(marketplace['plugins'], list) and marketplace['plugins'], \
+              'marketplace.json plugins must be a non-empty array'
+          for i, p in enumerate(marketplace['plugins']):
+              for k in ('name', 'description', 'source'):
+                  assert k in p, f'marketplace.json plugins[{i}] missing field: {k}'
+              src = p['source']
+              if isinstance(src, dict):
+                  assert 'source' in src, f'marketplace.json plugins[{i}].source object missing inner "source" key'
+              elif not isinstance(src, str):
+                  raise AssertionError(f'marketplace.json plugins[{i}].source must be string or object')
+          print('marketplace.json: OK')
+          PY

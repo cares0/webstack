@@ -273,13 +273,61 @@ For test database setup, the same Flyway runs against the test DB (Testcontainer
 
 Schema-managed-by-Spring (`spring.jpa.hibernate.ddl-auto=create`) is acceptable in throwaway tests but **never** in dev/staging/prod. Set `ddl-auto=validate` so the app refuses to start on schema drift; let Flyway own DDL.
 
+### Verifying migrations with TestContainers
+
+webstack's integration test convention is **Spring Boot 3.1+ `@ServiceConnection`** over a Testcontainers `PostgreSQLContainer`. The container starts a real Postgres for each test class, Flyway runs migrations against it, and the app boots against the live DB:
+
+```kotlin
+// src/test/kotlin/com/example/app/billing/infrastructure/persistence/InvoiceJpaAdapterSpec.kt
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
+
+@Testcontainers
+@SpringBootTest
+class InvoiceJpaAdapterSpec(
+    @Autowired private val adapter: InvoiceJpaAdapter,
+) : BehaviorSpec({
+    extension(SpringExtension)
+
+    given("a Postgres container with Flyway-applied schema") {
+        `when`("an invoice is persisted") {
+            val saved = adapter.save(Invoice.draft(amount = Money.of(100, "USD")))
+            then("it round-trips through findById") {
+                adapter.findById(saved.id) shouldBe saved
+            }
+        }
+    }
+}) {
+    companion object {
+        @Container
+        @ServiceConnection
+        @JvmStatic
+        val postgres = PostgreSQLContainer("postgres:16-alpine")
+    }
+}
+```
+
+The `@ServiceConnection` annotation (Spring Boot 3.1+) injects the container's JDBC URL, username, and password into the Spring context — no manual `spring.datasource.*` overrides. Flyway then runs against the container automatically because the standard auto-configuration is active.
+
+Use this pattern any time the test needs the real Postgres dialect: type coercions, JSONB columns, partial indexes, generated columns, RLS policies. Pure domain specs (no JPA) skip the container entirely and run as plain JVM unit tests.
+
+Pin `org.testcontainers:postgresql` and `org.testcontainers:junit-jupiter` per Spring Boot's BOM. webstack's build-be Phase 4.5 enforces at least one TestContainers-backed spec per feature whose backend touches persistence.
+
 ## webstack convention
 
-- **JPA entity location:** `com.example.app.<module>.internal.persistence.<Aggregate>JpaEntity.kt`. Mapping functions in the same file or a sibling `<Aggregate>Mapper.kt`.
-- **Domain class location:** `com.example.app.<module>.<Aggregate>.kt` (no JPA annotations, no Spring imports).
-- **Repository interface:** in the domain package (e.g., `com.example.app.billing.InvoiceRepository`). Implementation as `<Aggregate>RepositoryImpl` in `internal/persistence/`.
+- **JPA entity location:** `com.example.app.<module>.infrastructure.persistence.<aggregate>.<Aggregate>JpaEntity.kt`. Mapping functions in the same file or a sibling `<Aggregate>Mapper.kt`.
+- **Domain class location:** `com.example.app.<module>.domain.<aggregate>.<Aggregate>.kt` (no JPA annotations, no Spring imports).
+- **Repository interface:** in the module's domain package (e.g., `com.example.app.billing.domain.invoice.InvoiceRepository`). Implementation as `<Aggregate>JpaRepositoryImpl` in `<module>/infrastructure/persistence/<aggregate>/`.
 - **Identity:** application-generated UUID (UUIDv7 preferred). `<Aggregate>Id` value object wraps the UUID.
-- **Migrations:** Flyway under `src/main/resources/db/migration/`. CI verifies migrations apply cleanly to a fresh test DB before PR merges.
+- **Migrations:** Flyway under `src/main/resources/db/migration/` (global to the application). Prefix table names with the module (`billing_invoice`, `order_orderline`) so ownership is readable in the schema.
+- **Integration tests:** TestContainers `PostgreSQLContainer` with `@ServiceConnection` (Spring Boot 3.1+). At least one spec per feature that touches persistence verifies migrations + adapter round-trip.
 - **Transaction boundary:** `@Transactional` on application service methods (use cases). `readOnly = true` for query handlers.
 - **Read models:** JPQL projection or jOOQ for complex reads. Don't deepen the write model to satisfy the read.
 
@@ -289,3 +337,7 @@ Schema-managed-by-Spring (`spring.jpa.hibernate.ddl-auto=create`) is acceptable 
 - Hibernate User Guide: https://docs.jboss.org/hibernate/orm/current/userguide/html_single/Hibernate_User_Guide.html
 - Vlad Mihalcea's Hibernate articles: https://vladmihalcea.com
 - Flyway: https://flywaydb.org/documentation/
+- Spring Boot Testcontainers integration: https://docs.spring.io/spring-boot/reference/testing/testcontainers.html
+- `@ServiceConnection`: https://docs.spring.io/spring-boot/reference/testing/testcontainers.html#testing.testcontainers.service-connections
+
+Last verified: 2026-04-26.

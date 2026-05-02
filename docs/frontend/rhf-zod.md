@@ -12,10 +12,10 @@ The bridge is `@hookform/resolvers/zod`, which adapts a Zod schema to RHF's reso
 
 ## Setup
 
-Install the runtime dependencies:
+Install the runtime dependencies. Pin Zod to v4 (the current stable major); `@hookform/resolvers/zod` works against both v3 and v4 with the same import.
 
 ```bash
-pnpm add react-hook-form zod @hookform/resolvers
+pnpm add react-hook-form 'zod@^4' @hookform/resolvers
 ```
 
 ShadCN's form generator wires the integration:
@@ -24,14 +24,14 @@ ShadCN's form generator wires the integration:
 npx shadcn@latest add form input label textarea select
 ```
 
-This drops `src/components/ui/form.tsx` (a thin RHF + Radix Label wrapper) and the related primitives into your repo.
+This drops `src/shared/ui/form.tsx` (a thin RHF + Radix Label wrapper — the path comes from webstack's `components.json` aliases override) and the related primitives into your repo.
 
 ## Schema-first pattern
 
 Define the schema first, then derive the type from it. Never declare a separate TypeScript interface — they will drift.
 
 ```ts
-// src/components/projects/schema.ts
+// src/features/create-project/model/schema.ts
 import { z } from 'zod';
 
 export const ProjectFormSchema = z.object({
@@ -56,11 +56,11 @@ ShadCN's form components compose with RHF's `useForm` and `Controller` to produc
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { ProjectFormSchema, type ProjectFormValues } from './schema';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage } from '@/shared/ui/form';
+import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
+import { Button } from '@/shared/ui/button';
+import { ProjectFormSchema, type ProjectFormValues } from '../model/schema';
 
 export function ProjectForm({ onSubmit }: { onSubmit: (values: ProjectFormValues) => Promise<void> }) {
   const form = useForm<ProjectFormValues>({
@@ -114,10 +114,10 @@ export function ProjectForm({ onSubmit }: { onSubmit: (values: ProjectFormValues
 The Zod schema is shared between client and server. The frontend uses it for instant feedback; the server (Next.js Server Action or backend BFF) **must** re-parse the same schema before any side effect, because the client validation is advisory — anyone can call the action with crafted payloads.
 
 ```ts
-// src/components/projects/actions.ts
+// src/features/create-project/api/actions.ts
 'use server';
 
-import { ProjectFormSchema } from './schema';
+import { ProjectFormSchema } from '../model/schema';
 
 export async function createProject(values: unknown) {
   const parsed = ProjectFormSchema.parse(values); // throws on invalid → 400 to client
@@ -192,14 +192,20 @@ Customize default Zod messages on the schema itself rather than rewriting them i
 
 ## webstack convention
 
-- **One schema per feature**: `src/components/<feature>/schema.ts` exports the Zod schemas and inferred types. Both the form component and any colocated Server Action import from it.
-- **Generated SDK schemas first**: if `@hey-api/openapi-ts` emits a Zod schema for the request body, import it as the form's resolver schema. Hand-author only when the form needs additional client-only fields (e.g., a confirmation toggle) — extend with `Schema.extend({ confirm: z.literal(true) })`.
-- **Server Action vs SDK call**: form submissions targeting backend domain operations call the generated SDK from inside `onSubmit` (with TanStack Query mutations — see `docs/frontend/tanstack-query.md`). Use Server Actions for forms whose persistence is FE-only (e.g., NextAuth profile edits).
+webstack uses FSD-lite (see `docs/frontend/fsd-architecture.md`); RHF + Zod placement maps to layers:
+
+- **One schema per feature slice**: `src/features/<feature>/model/schema.ts` exports the Zod schemas and inferred types. Both the form component (`src/features/<feature>/ui/<Form>.tsx`) and any colocated Server Action (`src/features/<feature>/api/actions.ts`) import from it.
+- **ShadCN form primitives** are imported from `@/shared/ui/form`, `@/shared/ui/input`, etc.
+- **Generated SDK schemas first**: if `@hey-api/openapi-ts` emits a Zod schema for the request body, import it from `@/shared/api/generated` and use it as the form's resolver schema. Hand-author only when the form needs additional client-only fields (e.g., a confirmation toggle) — extend with `Schema.extend({ confirm: z.literal(true) })`.
+- **Server Action vs SDK call**: form submissions targeting backend domain operations call the generated SDK from inside `onSubmit` (with TanStack Query mutations under `src/features/<feature>/api/mutations.ts` — see `docs/frontend/tanstack-query.md`). Use Server Actions (`src/features/<feature>/api/actions.ts`) for forms whose persistence is FE-only (e.g., NextAuth profile edits).
 - **No two error message strings**: error copy lives in the Zod schema. The form components never hardcode validation messages.
 
 ## Sources
 
 - React Hook Form: https://react-hook-form.com/docs
 - Zod: https://zod.dev
+- Zod v4 release notes: https://zod.dev/v4
 - @hookform/resolvers: https://react-hook-form.com/get-started#SchemaValidation
 - ShadCN form component: https://ui.shadcn.com/docs/components/form
+
+Last verified: 2026-04-26 (Zod v4 stable; v3 still receives security fixes — webstack defaults to v4).

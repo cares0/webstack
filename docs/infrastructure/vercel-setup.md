@@ -1,6 +1,6 @@
 # Vercel Setup
 
-> Reference for the infra skill, terraform-plan-analyzer, and design-system-architect. Covers Vercel sign-up, project configuration, environment variables, Terraform automation, custom domains, and free-tier limits.
+> Reference for the infra skill, tofu-plan-analyzer, and design-system-architect. Covers Vercel sign-up, project configuration, environment variables, OpenTofu automation, custom domains, and free-tier limits.
 
 ## Why Vercel for FE
 
@@ -10,17 +10,26 @@ webstack's frontend-first deployment story (Next.js + Vercel for FE; backend on 
 
 ## Free tier limits
 
-The Hobby plan is free with these limits as of 2025:
+The Hobby plan is free with these limits as of 2026:
 
-- **100 GB outbound bandwidth per month.**
+- **100 GB outbound bandwidth per month.** Hard cap — once you hit 100 GB, deployments and traffic-serving are throttled until the cycle resets. Verify quota on Account → Usage.
 - **Unlimited requests** (Edge requests + Function invocations).
 - **1 concurrent build** at a time; subsequent pushes queue.
 - **6,000 build minutes per month** total.
+- **45-minute hard limit per individual build.** Even with monthly minutes remaining, any single build that exceeds 45 minutes fails immediately. webstack-generated frontends rarely approach this on a fresh project, but a Next.js app that grows large (heavy MDX, megabytes of static assets, expensive `generateStaticParams`) can hit it. Mitigations: cache `node_modules` (Vercel does this automatically), reduce `generateStaticParams` set or move to ISR / on-demand revalidation, or upgrade to Pro for the 60-minute limit.
 - **No commercial use.** Hobby projects must be personal/non-commercial. Paid Pro tier is required for any commercial product.
 - **100 deployments per day** per account.
 - **No team members on Hobby**; collaboration requires Pro/Enterprise.
 
 webstack assumes Hobby for the personal/learning/MVP use case and warns when usage approaches limits. A commercial product moving to Pro requires only re-confirming the plan in the Vercel dashboard; the project itself does not change.
+
+> **Hard limits to watch (gotchas):**
+>
+> - **45 min per build** — fails immediately if exceeded, regardless of monthly minutes remaining.
+> - **100 GB monthly bandwidth** — hard-enforced; new requests are throttled at the cap, not a soft warning.
+> - **100 deployments/day** — push storms (force-push branches in CI) can blow through this faster than you'd expect.
+>
+> If `/webstack:deploy` reports a Vercel build error, check `vercel logs <deployment-url>` and look for "Build exceeded maximum allowed duration" before assuming code changes broke the build.
 
 ## Sign-up & GitHub link
 
@@ -43,7 +52,7 @@ To import a frontend repo as a Vercel project:
 
 The first deploy completes in 1-3 minutes. Subsequent deploys reuse cached node_modules and the Next.js build cache.
 
-In webstack, project import is automated via `terraform-provider-vercel` (see below); the manual UI flow is the fallback for non-Terraform users.
+In webstack, project import is automated via the `vercel/vercel` provider (see below); the manual UI flow is the fallback for non-IaC users.
 
 ## Environment variables
 
@@ -59,7 +68,7 @@ Each variable can be marked **Sensitive** (encrypted, write-only after creation;
 
 ## Token issuance
 
-To allow Terraform / CI to manage Vercel resources:
+To allow OpenTofu / CI to manage Vercel resources:
 
 1. Vercel dashboard → **Account Settings** → **Tokens**.
 2. Click **Create Token**.
@@ -70,9 +79,9 @@ To allow Terraform / CI to manage Vercel resources:
 
 The user pastes the token into `<infra>/.env` as `VERCEL_TOKEN=...`. The .env is gitignored and excluded from Claude Code reads via `.claude/settings.local.json` deny rules; the user exports it into the shell before invoking `/webstack:infra`.
 
-## terraform-provider-vercel
+## vercel/vercel provider
 
-The official `vercel/vercel` provider exposes the platform as Terraform resources.
+The official `vercel/vercel` provider exposes the platform as IaC resources. The HCL is identical for OpenTofu and Terraform; the `terraform { ... }` HCL block name is preserved by OpenTofu for portability.
 
 ```hcl
 terraform {
@@ -109,13 +118,10 @@ resource "vercel_project_environment_variable" "api_url" {
   target     = ["production", "preview"]
 }
 
-resource "vercel_project_environment_variable" "supabase_anon" {
-  project_id = vercel_project.frontend.id
-  key        = "NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  value      = var.supabase_anon_key
-  target     = ["production", "preview", "development"]
-  sensitive  = true
-}
+# webstack pushes only public, FE-needed values via NEXT_PUBLIC_*. The frontend
+# does not talk to Supabase directly (Auth/Storage/Realtime are not used by
+# webstack — see docs/infrastructure/supabase-setup.md), so no anon key
+# environment variable is provisioned. Domain operations go FE → Spring → Postgres.
 
 resource "vercel_project_domain" "primary" {
   project_id = vercel_project.frontend.id
@@ -173,13 +179,15 @@ In webstack, the convention is `git push origin main` is the deploy command. `/w
 
 - **Provider config in `infrastructure/main.tf`.** Version pinned (`~> 2.0`); token bound to `var.vercel_token`.
 - **Project resource in `infrastructure/vercel.tf`.** One resource per Vercel project; webstack creates one project per frontend repo.
-- **Env vars in same file.** `NEXT_PUBLIC_*` values flow from outputs of other Terraform resources (Supabase URL, backend API URL); secrets are passed via sensitive variables from `.env`.
+- **Env vars in same file.** `NEXT_PUBLIC_*` values flow from outputs of other OpenTofu resources (Supabase URL, backend API URL); secrets are passed via sensitive variables from `.env`.
 - **Deploy via git push.** No `vercel_deployment` resources in webstack — preserve the auto-deploy hook semantics.
 - **Free-tier monitoring.** webstack does not enforce usage caps; the user reviews monthly. The infra skill flags when `vercel_project` count or estimated bandwidth (from build metadata) approaches Hobby limits.
 
 ## Sources
 
 - Vercel docs: https://vercel.com/docs
-- terraform-provider-vercel: https://registry.terraform.io/providers/vercel/vercel/latest/docs
+- vercel/vercel provider (OpenTofu Registry): https://search.opentofu.org/provider/vercel/vercel/latest
 - Vercel pricing & limits: https://vercel.com/docs/limits
 - Vercel environment variables: https://vercel.com/docs/projects/environment-variables
+
+Last verified: 2026-04-26.

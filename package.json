@@ -1,8 +1,8 @@
 {
   "name": "webstack",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Fullstack web service harness for Claude Code (plugin metadata mirror)",
+  "description": "Fullstack web service harness for Claude Code (plugin metadata mirror — used only for lint scripts)",
   "scripts": {
     "lint:md": "markdownlint '**/*.md' --ignore node_modules",
     "lint:json": "find . -name '*.json' -not -path './node_modules/*' -not -path './.git/*' -exec python3 -c \"import json,sys; json.load(open(sys.argv[1]))\" {} \\;",
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/<user>/webstack"
+    "url": "https://github.com/cares0/webstack"
   },
   "license": "MIT",
   "devDependencies": {

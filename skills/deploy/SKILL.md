@@ -1,13 +1,16 @@
 ---
 name: deploy
 description: Use when deploying frontend (Vercel auto-deploy via git push) or backend (Oracle Cloud manual deploy via SCP + systemd) after feature completion. Pre-flight runs security-auditor; tests must pass; user confirms target. Streams deployment status until success/failure.
+disable-model-invocation: true
 ---
 
 # deploy skill — application deployment
 
 You are running `/webstack:deploy`. Push code to production. Confirm everything; deployments are user-visible and partially irreversible.
 
-## Required reads
+## Reference docs (lazy — read on demand)
+
+These references are loaded **lazily** — do NOT preload at P0. When a phase below names a doc, Read it at that point only.
 
 - `docs/infrastructure/vercel-setup.md`
 - `docs/infrastructure/oracle-cloud-setup.md`
@@ -15,7 +18,7 @@ You are running `/webstack:deploy`. Push code to production. Confirm everything;
 
 ## Pre-flight (P0)
 
-1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has `vercel_project_url` + `oracle_instance_public_ip` + `supabase_project_url` keys mirrored from `terraform output`).
+1. Verify `<project_root>/.webstack/manifest.yaml` and infra was applied (manifest has `vercel_project_url` + `oracle_instance_public_ip` + `supabase_project_url` keys mirrored from `tofu output`).
 2. Invoke `security-auditor` SubAgent on all 3 repos. Block on Critical.
 3. For frontend: `cd <fe-repo> && git status --porcelain` empty + on main + main is up to date with origin (`git fetch && git rev-list HEAD..origin/main` is empty). If not: surface to user.
 4. For backend: same checks.
@@ -63,7 +66,7 @@ Vercel auto-deploys on push to main. Since pre-flight already checks main = orig
 
    Notes:
    - The systemd unit `webstack-app.service` (provisioned by `cloud-init.yaml` during `/webstack:infra`) reads `/opt/app/app.env` for `DATABASE_URL`, `SUPABASE_*`, etc.
-   - `deploy/app.env` is a per-deploy environment file you assemble locally from the manifest + sensitive `terraform output -raw` values; never commit it (gitignore `deploy/app.env`).
+   - `deploy/app.env` is a per-deploy environment file you assemble locally from the manifest + sensitive `tofu output -raw` values; never commit it (gitignore `deploy/app.env`).
    - The user must have configured the SSH key during `/webstack:infra` (the public key was injected via `oci_core_instance.metadata.ssh_authorized_keys`).
 4. Restart the service (service name is fixed: `webstack-app.service`):
 

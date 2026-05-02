@@ -64,7 +64,7 @@ Two principles:
 1. **Hierarchical** — invalidating `['users']` invalidates everything beneath it. Invalidating `['users', userId]` invalidates only that user.
 2. **Stable** — object keys are deep-compared. Always include parameters in the same order, with stable serialization.
 
-webstack convention: query keys mirror the OpenAPI `operationId`. `getProjects` becomes `['getProjects', params]`; `getProject` with `{id}` becomes `['getProject', { id }]`. The hey-api TanStack Query plugin (below) generates these for you.
+webstack convention: query keys mirror the OpenAPI `operationId`. `getProjects` becomes `['getProjects', params]`; `getProject` with `{id}` becomes `['getProject', { id }]`. The hey-api TanStack Query plugin (below) generates these for you, and the generated hooks land at `src/shared/api/generated/`.
 
 ## useQuery basics
 
@@ -275,7 +275,7 @@ import { defineConfig } from '@hey-api/openapi-ts';
 
 export default defineConfig({
   input: 'http://localhost:8080/v3/api-docs',
-  output: 'src/api/generated',
+  output: 'src/shared/api/generated',
   plugins: [
     '@hey-api/client-fetch',
     '@hey-api/typescript',
@@ -293,10 +293,15 @@ Run `pnpm openapi-ts` after backend OpenAPI changes; commit the generated output
 
 ## webstack convention
 
+webstack uses FSD-lite (see `docs/frontend/fsd-architecture.md`); TanStack Query usage maps to layers:
+
+- **Generated hooks live in `src/shared/api/generated/`.** Both queries and mutations are emitted there by `@hey-api/openapi-ts`.
+- **Entity-scoped reads** (`useGetProjectsQuery`, `useGetProjectQuery`) are wrapped — when a wrapper is needed at all — under `src/entities/<entity>/api/queries.ts`. The wrapper exists when defaults need overriding (e.g., custom `staleTime`, `select` projection); otherwise import the generated hook directly.
+- **Feature-scoped mutations** (`usePostProjectMutation`) are wrapped under `src/features/<feature>/api/mutations.ts`. The wrapper attaches `onSuccess` invalidation, optimistic updates, and toast hooks specific to that user action.
 - **Query keys mirror operationId.** `useGetProjectsQuery(params)` produces `['getProjects', params]`. Manual queries follow the same convention so invalidation stays consistent.
-- **Mutations call the generated SDK.** Form `onSubmit` invokes `mutate(values)` from a generated `usePost…Mutation`; on success, `queryClient.invalidateQueries({ queryKey: ['getProjects'] })` (matching the corresponding GET).
-- **One QueryClient per app.** Defined in `Providers.tsx` at the root layout. Tests instantiate a fresh client per test.
-- **Server Component pre-fetch for above-the-fold lists.** Use `prefetchQuery` + `HydrationBoundary` so the first paint has data; subsequent updates flow through the client cache.
+- **Mutations call the generated SDK.** A form's `onSubmit` invokes `mutate(values)` from `src/features/<feature>/api/mutations.ts`; on success, the wrapper calls `queryClient.invalidateQueries({ queryKey: ['getProjects'] })` (matching the corresponding GET in `src/entities/<entity>/api/queries.ts`).
+- **One QueryClient per app.** Defined in `src/app/providers/QueryProvider.tsx` and mounted by `src/app/layout.tsx`. Tests instantiate a fresh client per test.
+- **Server Component pre-fetch for above-the-fold lists.** Use `prefetchQuery` + `HydrationBoundary` inside `src/app/<route>/page.tsx`, hydrating into the same `QueryClient`.
 - **No `useEffect` + `fetch`.** Every server data dependency goes through TanStack Query (or a Server Component), never a hand-rolled effect.
 - **Devtools off in production.** `<ReactQueryDevtools initialIsOpen={false} />` ships dev-only via `process.env.NODE_ENV === 'development'` guard if needed.
 
@@ -306,3 +311,5 @@ Run `pnpm openapi-ts` after backend OpenAPI changes; commit the generated output
 - Suspense + RSC handoff: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 - @hey-api TanStack Query plugin: https://heyapi.dev/openapi-ts/plugins/tanstack-react-query
 - @hey-api/openapi-ts: https://heyapi.dev/openapi-ts
+
+Last verified: 2026-04-26 (TanStack Query v5 stable; v6 not yet released).

@@ -8,14 +8,17 @@
   "plugins": [
     {
       "name": "webstack",
-      "description": "Brand-driven fullstack scaffolding with contract-first APIs (OpenAPI 3.1) and free-tier infra (Vercel + Oracle Cloud Always Free + Supabase + Terraform). Stack: NextJS App Router + ShadCN + Tailwind v4 / Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec.",
-      "version": "0.1.0",
-      "source": "./",
+      "description": "Brand-driven fullstack scaffolding with contract-first APIs (OpenAPI 3.1) and free-tier infra (Vercel + Oracle Cloud Always Free + Supabase + OpenTofu). Stack: NextJS App Router (FSD-lite) + ShadCN + Tailwind v4 / Spring Boot 3 + Kotlin + DDD/Hexagonal + Spring Modulith + KoTest BehaviorSpec.",
+      "version": "0.2.0",
+      "source": {
+        "source": "github",
+        "repo": "cares0/webstack"
+      },
       "author": {
         "name": "YoungJun Kim",
         "email": "cares00000@gmail.com"
       },
-      "homepage": "https://github.com/<user>/webstack",
+      "homepage": "https://github.com/cares0/webstack",
       "license": "MIT",
       "categories": ["fullstack", "scaffolding", "design-system", "iac"],
       "keywords": ["nextjs", "spring", "kotlin", "ddd", "openapi", "terraform", "vercel", "oracle-cloud", "supabase"]

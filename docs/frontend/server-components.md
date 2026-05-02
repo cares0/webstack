@@ -103,6 +103,66 @@ Server Actions can be inline (defined in a Server Component file) or extracted t
 
 For form-driven mutations, Server Actions are preferred over Route Handlers: they get progressive enhancement (work without JS), automatic revalidation hooks, and direct access to the request context.
 
+## React 19 form hooks (`useActionState`, `useFormStatus`, `useOptimistic`)
+
+React 19 (stable since 2025) ships three hooks that pair naturally with Server Actions and remove most of the bespoke wiring webstack used to hand-write inside RHF + Zod forms:
+
+- **`useActionState(action, initialState)`** — wraps a Server Action and exposes `[state, formAction, isPending]`. The Server Action itself receives `(prevState, formData)` and returns the next state. This is the canonical pattern for "submit a form, render the server's response inline" without Client-side state plumbing.
+- **`useFormStatus()`** — returns `{ pending, data, method, action }` for the **enclosing** form. It must be called from a child of `<form>`, never the form itself. Useful in submit buttons that need to disable themselves and show a spinner.
+- **`useOptimistic(state, updateFn)`** — returns `[optimisticState, addOptimistic]` that lets the UI render an instant guess while the Server Action is in flight. The optimistic state is automatically reconciled with the real state once the action returns.
+
+Minimal example combining all three:
+
+```tsx
+'use client';
+
+import { useActionState, useOptimistic } from 'react';
+import { useFormStatus } from 'react-dom';
+import { createComment } from './actions';
+
+type State = { error?: string };
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return <button disabled={pending}>{pending ? 'Saving…' : 'Add comment'}</button>;
+}
+
+export function CommentForm({ initial }: { initial: Comment[] }) {
+  const [state, formAction] = useActionState<State, FormData>(
+    async (_prev, formData) => createComment(formData),
+    {},
+  );
+  const [optimistic, addOptimistic] = useOptimistic(initial, (curr, next: Comment) => [
+    ...curr,
+    next,
+  ]);
+
+  return (
+    <form
+      action={(fd) => {
+        addOptimistic({ id: crypto.randomUUID(), text: fd.get('text') as string });
+        formAction(fd);
+      }}
+    >
+      <textarea name="text" required />
+      <SubmitButton />
+      {state.error && <p role="alert">{state.error}</p>}
+      <ul>
+        {optimistic.map((c) => (
+          <li key={c.id}>{c.text}</li>
+        ))}
+      </ul>
+    </form>
+  );
+}
+```
+
+**When to use these vs RHF + Zod**:
+
+- **Single-field or simple forms** (subscribe, like, comment, follow): React 19 hooks are enough and ship less JS.
+- **Complex forms** (multi-step, async cross-field validation, dynamic field arrays, rich client-side error UX): RHF + Zod still wins. RHF's uncontrolled-by-default model + Zod schema reuse outclass React 19's primitives at scale.
+- **Hybrid**: webstack convention is to keep RHF + Zod as the default for backend-targeted form mutations (so client and server share one Zod schema — see `docs/frontend/rhf-zod.md`). Use React 19 hooks selectively for FE-only, single-action forms (e.g., a NextAuth profile blurb update Server Action).
+
 ## Type safety across boundary
 
 Props passed from a Server Component to a Client Component are serialized with `React.RSC`'s superset of JSON. **Allowed:**
@@ -124,13 +184,21 @@ In practice: if your prop wouldn't survive `JSON.stringify` plus the Promise/ele
 
 ## webstack convention
 
-webstack-generated frontends fetch data from the backend via the OpenAPI-generated SDK. Default to Server Components calling the SDK and passing the result as props. Promote a subtree to Client Component only when:
+webstack-generated frontends follow FSD-lite (see `docs/frontend/fsd-architecture.md`). The Server/Client split maps onto FSD layers as follows:
 
-1. The data is interaction-driven (mutations, optimistic updates, search-as-you-type) — use TanStack Query in a Client Component (see `docs/frontend/tanstack-query.md`).
+- **`src/app/<route>/page.tsx`**: Server Component by default. Calls the generated SDK or entity-level queries (`src/entities/<x>/api/queries.ts`) directly with `await`, then renders widgets/features.
+- **`src/widgets/<widget>/`**: usually Server Components. A widget that needs interactivity (a sticky header that listens to scroll) marks just its interactive leaf with `'use client'`.
+- **`src/features/<feature>/ui/<Component>.tsx`**: typically `'use client'`. Features are user-facing interactions (forms, mutations, optimistic updates), so Client by default makes sense — but the directive still goes only on the leaf, not the whole feature directory.
+- **`src/entities/<entity>/ui/<Display>.tsx`**: Server Components when they only render data; mark `'use client'` only if they wrap an interactive primitive (e.g., a clickable card that opens a modal).
+- **`src/shared/ui/*` (ShadCN primitives)**: ShadCN components ship with `'use client'` where they wrap Radix primitives that need browser context — leave that as is. Pure presentational primitives (`Card`, `Badge`) stay server-friendly.
+
+Default to Server Components calling the SDK and passing the result as props. Promote a subtree to Client Component only when:
+
+1. The data is interaction-driven (mutations, optimistic updates, search-as-you-type) — use TanStack Query in a Client Component (see `docs/frontend/tanstack-query.md`). The query/mutation lives at `src/features/<feature>/api/` (mutation) or `src/entities/<entity>/api/` (query).
 2. The component needs browser APIs (modals, toasts, tooltips, drag-and-drop).
 3. The data must update without a full route refresh (live dashboards, polling).
 
-Form submissions inside the frontend repo's own surface (e.g., contact forms, profile updates persisted in Supabase via NextAuth) use Server Actions with Zod validation. Form submissions targeting the backend's domain operations call the generated SDK from a Client Component using TanStack Query mutations, never duplicating the validation in a Server Action.
+Form submissions inside the frontend repo's own surface (e.g., contact forms, profile updates persisted in Supabase via NextAuth) use Server Actions with Zod validation; the Server Action and the form share the same Zod schema from `src/features/<feature>/model/schema.ts`. Form submissions targeting the backend's domain operations call the generated SDK from a Client Component using TanStack Query mutations under `src/features/<feature>/api/mutations.ts`, never duplicating the validation in a Server Action.
 
 ## Sources
 
@@ -138,3 +206,9 @@ Form submissions inside the frontend repo's own surface (e.g., contact forms, pr
 - Client Components: https://nextjs.org/docs/app/building-your-application/rendering/client-components
 - Composition patterns: https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns
 - Server Actions: https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations
+- React 19 release: https://react.dev/blog/2024/12/05/react-19
+- `useActionState`: https://react.dev/reference/react/useActionState
+- `useFormStatus`: https://react.dev/reference/react-dom/hooks/useFormStatus
+- `useOptimistic`: https://react.dev/reference/react/useOptimistic
+
+Last verified: 2026-04-26 (React 19.x stable).

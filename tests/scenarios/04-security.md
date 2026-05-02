@@ -27,8 +27,8 @@ Mock `.env` written (from Scenario 03 setup).
 - [ ] Attempt `Bash('echo $VERCEL_TOKEN')`.
   - Expected: BLOCKED by deny rule pattern.
 
-- [ ] Attempt `Bash('echo $SUPABASE_SERVICE_ROLE_KEY')`.
-  - Expected: BLOCKED.
+- [ ] Attempt `Bash('echo $TF_VAR_supabase_db_password')`.
+  - Expected: BLOCKED (deny rule on `echo $*_PASSWORD` and the hook's printenv pattern).
 
 - [ ] Verify Bash that does NOT touch secrets is allowed:
   - `Bash('ls myapp-infrastructure/')` → ALLOWED, lists files including `.env`.
@@ -40,8 +40,8 @@ Mock `.env` written (from Scenario 03 setup).
   - `Read('myapp-infrastructure/.env.template')` → ALLOWED (template is safe; placeholders only).
 
 - [ ] Verify generated frontend SDK does not contain raw tokens:
-  - `grep -r "VERCEL_TOKEN\|SUPABASE_SERVICE_ROLE_KEY" myapp-frontend/src/ || echo "no secrets in frontend src"`
-  - Expected: `no secrets in frontend src`.
+  - `grep -rE "(VERCEL_TOKEN|TF_VAR_|postgresql://[^/]+:[^@]+@)" myapp-frontend/src/ || echo "no secrets in frontend src"`
+  - Expected: `no secrets in frontend src`. (No backend tokens, no DB password, no DB URL with embedded credentials.)
 
 ## Pass criteria
 
@@ -63,7 +63,7 @@ grep -q "Bash(echo \$\*_TOKEN)"   .claude/settings.local.json || { echo "FAIL: d
 # .env tracked-by-git check (must NOT be tracked).
 git ls-files --error-unmatch .env >/dev/null 2>&1 && { echo "FAIL: .env is tracked in git"; exit 1; } || true
 cd "$TEST_DIR"
-# No service_role / token in frontend src (would mean a leak into the bundle).
-grep -rE "(VERCEL_TOKEN|SUPABASE_SERVICE_ROLE_KEY|service_role)" myapp-frontend/src/ 2>/dev/null && { echo "FAIL: secret in FE src"; exit 1; } || true
+# No backend tokens / DB credentials in frontend src (would mean a leak into the bundle).
+grep -rE "(VERCEL_TOKEN|TF_VAR_[a-z_]+|postgresql://[^/]+:[^@]+@)" myapp-frontend/src/ 2>/dev/null && { echo "FAIL: secret in FE src"; exit 1; } || true
 echo "PASS: scenario 04 (static checks)"
 -->

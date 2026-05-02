@@ -7,7 +7,9 @@ description: Use when adding a new feature to an existing webstack project (.web
 
 You are running `/webstack:feature <name>`. Coordinate parallel subagents across two worktrees, but interact with the user yourself for design decisions.
 
-## Required reads
+## Reference docs (lazy — read on demand)
+
+These references are loaded **lazily** — do NOT preload at P0. When a phase below names a doc, Read it at that point only.
 
 - `shared/methodologies/api-first.md`
 - `shared/methodologies/ddd.md`

@@ -28,9 +28,11 @@ plugins {
 }
 
 dependencies {
-    testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
-    testImplementation("io.kotest:kotest-assertions-core:5.9.1")
-    testImplementation("io.kotest:kotest-property:5.9.1")
+    // Pin to the current KoTest 6.x stable line. Verify the latest patch at
+    // https://github.com/kotest/kotest/releases at implementation time.
+    testImplementation("io.kotest:kotest-runner-junit5:6.1.10")
+    testImplementation("io.kotest:kotest-assertions-core:6.1.10")
+    testImplementation("io.kotest:kotest-property:6.1.10")
     testImplementation("io.kotest.extensions:kotest-extensions-spring:1.3.0")
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
@@ -43,7 +45,18 @@ tasks.test {
 }
 ```
 
-Pin to a current KoTest 5.x; refresh quarterly. The Spring extension wires `@SpringBootTest` into KoTest's lifecycle; without it, the application context does not boot for KoTest specs.
+Pin to the current KoTest 6.x stable; refresh per major Spring Boot release or every two months. The Spring extension wires `@SpringBootTest` into KoTest's lifecycle; without it, the application context does not boot for KoTest specs.
+
+### Migrating from 5.x to 6.x
+
+KoTest 6 introduces a few intentional breaking changes from 5.x; webstack's BehaviorSpec usage is mostly unaffected, but verify per project:
+
+- **Coroutines**: `runTest` semantics aligned with kotlinx-coroutines-test 1.8+. Existing `runTest { ... }` blocks compile unchanged.
+- **Property-based testing**: `Arb` API is unchanged for the patterns webstack uses (`Arb.int(0, 100_000)`, `checkAll(...)`).
+- **Spring extension**: still imported as `io.kotest.extensions.spring.SpringExtension`. Confirm the version (`1.3.0` in the snippet above) is compatible with your KoTest patch — newer KoTest patches occasionally bump the minimum extension version.
+- **Assertion library**: `shouldBe`, `shouldNotBe`, `shouldThrow`, `assertSoftly`, `withClue` are stable. Only obscure assertions removed.
+
+Run `./gradlew test --rerun-tasks` after the bump; address any deprecation warnings.
 
 ## File structure
 
@@ -224,6 +237,63 @@ class InvoiceJpaAdapterSpec(
 
 `extension(SpringExtension)` is mandatory for the application context to bind. For controller slices use `@WebMvcTest`; for JPA-only `@DataJpaTest` (faster than full `@SpringBootTest`).
 
+## Integration testing with TestContainers
+
+For tests that need real Postgres semantics — JSONB columns, partial indexes, RLS policies, generated columns, dialect-sensitive queries — webstack's convention is **Spring Boot 3.1+ `@ServiceConnection`** over a Testcontainers `PostgreSQLContainer`. Flyway migrations apply against the container; the Spring app boots against the live DB; tests run; the container is torn down.
+
+```kotlin
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.extensions.spring.SpringExtension
+import io.kotest.matchers.shouldBe
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
+
+@Testcontainers
+@SpringBootTest
+class InvoiceQueryAdapterSpec(
+    @Autowired private val adapter: InvoiceQueryAdapter,
+) : BehaviorSpec({
+    extension(SpringExtension)
+
+    given("a Postgres container with Flyway-applied schema") {
+        `when`("invoices are inserted then queried") {
+            adapter.save(Invoice.draft(amount = Money.of(100, "USD")))
+            adapter.save(Invoice.draft(amount = Money.of(200, "USD")))
+            then("the count is 2") {
+                adapter.countAll() shouldBe 2L
+            }
+        }
+    }
+}) {
+    companion object {
+        @Container
+        @ServiceConnection
+        @JvmStatic
+        val postgres = PostgreSQLContainer("postgres:16-alpine")
+    }
+}
+```
+
+Dependencies (latest patches via Spring Boot's BOM):
+
+```kotlin
+testImplementation("org.springframework.boot:spring-boot-testcontainers")
+testImplementation("org.testcontainers:postgresql")
+testImplementation("org.testcontainers:junit-jupiter")
+```
+
+When NOT to use TestContainers:
+
+- **Domain-only specs** (no Spring, no JPA): pure JVM is faster and isolation is perfect.
+- **Pure controller slice tests**: `@WebMvcTest` mocks the persistence layer; no DB needed.
+- **Local dev convenience**: TestContainers needs Docker running. CI must enable Docker; document this in README.
+
+webstack's `build-be` skill Phase 4.5 enforces at least one TestContainers-backed spec per feature whose backend touches persistence — see `skills/build-be/SKILL.md`. Cross-reference: `docs/backend/jpa-patterns.md` "Verifying migrations with TestContainers" for the migration-test variant.
+
 ## Coroutine tests
 
 Use `runTest` from kotlinx-coroutines-test for deterministic time control. KoTest also exposes `coroutineScope { }` and `runBlocking { }` directly inside `then` blocks since each `then` is itself a `suspend` lambda:
@@ -288,3 +358,6 @@ See `shared/templates/kotest-spec-template.md` for the canonical scaffold.
 - KoTest Spring extension: https://kotest.io/docs/extensions/spring.html
 - MockK: https://mockk.io/
 - KoTest property-based: https://kotest.io/docs/proptest/property-based-testing.html
+- KoTest releases: https://github.com/kotest/kotest/releases
+
+Last verified: 2026-04-26 (KoTest 6.x stable).

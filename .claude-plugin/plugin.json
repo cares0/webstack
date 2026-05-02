@@ -1,18 +1,16 @@
 {
   "name": "webstack",
-  "version": "0.1.0",
-  "description": "Fullstack web service harness for Claude Code — guides identity-driven design system, multi-repo scaffolding, contract-first API, parallel feature development with worktrees, and free-tier IaC (NextJS+ShadCN+Tailwind / Spring+Kotlin+DDD+KoTest / Vercel+Oracle+Supabase+Terraform).",
+  "version": "0.2.0",
+  "description": "Fullstack web service harness for Claude Code — guides identity-driven design system, multi-repo scaffolding, contract-first API, parallel feature development with worktrees, and free-tier IaC (NextJS+ShadCN+Tailwind+FSD-lite / Spring+Kotlin+DDD+Modulith+KoTest / Vercel+Oracle+Supabase+OpenTofu).",
   "author": {
     "name": "YoungJun Kim",
     "email": "cares00000@gmail.com"
   },
+  "homepage": "https://github.com/cares0/webstack",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/<user>/webstack"
+    "url": "https://github.com/cares0/webstack"
   },
-  "keywords": ["fullstack", "nextjs", "spring", "kotlin", "ddd", "openapi", "terraform", "design-system", "vercel", "oracle-cloud", "supabase", "marketplace"],
-  "engines": {
-    "claude-code": ">=2.0.0"
-  }
+  "keywords": ["fullstack", "nextjs", "spring", "kotlin", "ddd", "modulith", "fsd", "openapi", "opentofu", "design-system", "vercel", "oracle-cloud", "supabase", "marketplace"]
 }

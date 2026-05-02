@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Block AI Read of .env* and secrets.local.* files.
 
-Claude Code PreToolUse hook contract:
+Claude Code PreToolUse hook contract (current recommended pattern — JSON output):
 - Receive JSON on stdin: {tool_name, tool_input, ...}
-- Exit 0 = allow; exit 2 with stderr message = block.
+- Print a decision JSON object to stdout and exit 0.
+- Schema: hookSpecificOutput.permissionDecision in {"allow","ask","deny","defer"}.
+- Legacy "exit 2 + stderr" still works but is deprecated; we use JSON for richer feedback.
 """
 import fnmatch
 import json
@@ -19,6 +21,20 @@ BLOCKED_PATTERNS = [
 ]
 
 
+def deny(reason: str) -> None:
+    json.dump(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        },
+        sys.stdout,
+    )
+    sys.stdout.flush()
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -29,12 +45,12 @@ def main() -> int:
         return 0
     for pattern in BLOCKED_PATTERNS:
         if fnmatch.fnmatch(file_path, pattern):
-            sys.stderr.write(
+            deny(
                 f"BLOCKED by webstack: {file_path} matches secret-file pattern "
                 f"({pattern}). Source the file in your shell instead — see "
-                f"docs/infrastructure/setup-guide.md.\n"
+                f"the plugin's docs/infrastructure/setup-guide.md."
             )
-            return 2
+            return 0
     return 0
 
 

@@ -4,7 +4,7 @@
 
 ## Overview
 
-This guide takes a fresh machine from "no Vercel/Oracle/Supabase accounts" to "ready to run `/webstack:infra`." Each step is self-contained — complete one before moving to the next. **Claude Code does not read your tokens at any point**; the file containing them (`.env`) is excluded from AI reads via the project's `.claude/settings.local.json` deny rule. The user's shell and Terraform read the .env directly.
+This guide takes a fresh machine from "no Vercel/Oracle/Supabase accounts" to "ready to run `/webstack:infra`." Each step is self-contained — complete one before moving to the next. **Claude Code does not read your tokens at any point**; the file containing them (`.env`) is excluded from AI reads via the project's `.claude/settings.local.json` deny rule. The user's shell and OpenTofu read the .env directly.
 
 Time budget: 30-60 minutes for first-time provider sign-ups (the credit-card verification on Oracle Cloud is the slowest).
 
@@ -99,7 +99,7 @@ TF_VAR_supabase_organization_id=<paste>
 TF_VAR_supabase_db_password=<paste>
 ```
 
-The `TF_VAR_` prefix lets Terraform pick up these values automatically when exported in the shell.
+The `TF_VAR_` prefix lets OpenTofu pick up these values automatically when exported in the shell. (The prefix is preserved by OpenTofu for backwards compatibility with Terraform — same env var name in both tools.)
 
 **Never commit this file.** webstack's `.gitignore` already excludes `.env`. Verify in Step 4.
 
@@ -137,7 +137,7 @@ The file should contain `permissions.deny` array entries that block AI Read of t
 
 ## Step 5: Export environment variables
 
-Terraform reads `TF_VAR_*` from the environment, not from .env directly. Source the file into your shell:
+OpenTofu reads `TF_VAR_*` from the environment, not from .env directly. Source the file into your shell:
 
 ```bash
 cd <project>-infrastructure
@@ -156,22 +156,22 @@ In a Claude Code session inside the same shell where Step 5 was executed:
 /webstack:infra
 ```
 
-The skill runs `terraform init`, then `terraform plan -out=tfplan`, hands the plan output to the terraform-plan-analyzer SubAgent for review, presents the analysis to you, and waits for explicit approval before running `terraform apply tfplan`.
+The skill runs `tofu init`, then `tofu plan -out=tfplan`, hands the plan output to the tofu-plan-analyzer SubAgent for review, presents the analysis to you, and waits for explicit approval before running `tofu apply tfplan`.
 
-After apply, the skill surfaces the Terraform outputs (Vercel project URL, Oracle public IP, Supabase project URL, anon key, database URL) and tells you how to populate the FE/BE repos' `.env.local` files. **You** copy the values from the output into those files; Claude does not write secrets.
+After apply, the skill surfaces the OpenTofu outputs (Vercel project URL, Oracle public IP, Supabase project URL, `database_url`, `database_direct_url`) and tells you how to populate the FE/BE repos' `.env.local` files. **You** copy the values from the output into those files; Claude does not write secrets.
 
 ## Troubleshooting
 
-**`terraform: command not found`**
+**`tofu: command not found`**
 
-Install Terraform:
+Install OpenTofu:
 
 ```bash
-brew install terraform           # macOS via Homebrew
-# or download from https://developer.hashicorp.com/terraform/install
+brew install opentofu            # macOS via Homebrew
+# or download from https://opentofu.org/docs/intro/install/
 ```
 
-Verify with `terraform -version`. Pin to 1.6+.
+Verify with `tofu -version`. Pin to 1.10+.
 
 **`Error: No value for required variable`**
 
@@ -186,7 +186,7 @@ Check with `env | grep ^TF_VAR_`. Each new terminal needs the export.
 
 **`Error: ... permission denied: ./.env`**
 
-This is expected for Claude Code reads. Your shell and Terraform should still be able to read it. Verify with `cat .env | head -1` in your terminal.
+This is expected for Claude Code reads. Your shell and OpenTofu should still be able to read it. Verify with `cat .env | head -1` in your terminal.
 
 Provider authentication errors:
 
@@ -196,7 +196,7 @@ Provider authentication errors:
 
 **`Plan: 0 to add, 0 to change, 0 to destroy`**
 
-Means Terraform thinks state matches reality. If you expect changes, the resource may already exist (manual creation in dashboard) and need to be imported via `terraform import`.
+Means OpenTofu thinks state matches reality. If you expect changes, the resource may already exist (manual creation in dashboard) and need to be imported via `tofu import`.
 
 ## Free tier monitoring
 
@@ -227,9 +227,20 @@ If a token is exposed (committed accidentally, leaked in logs, included in a pub
 
 For Oracle: also rotate the API signing key file pair (Step 2 commands) — the public key in OCI Console must be replaced.
 
+## Authentication (only if you opted in during init)
+
+webstack does not bundle an authentication provider. If you answered **Yes** to the auth prompt during `/webstack:init`, the Spring backend already has `spring-boot-starter-security` on the classpath with a permissive default `SecurityFilterChain`. To turn that into real authentication:
+
+1. Read `docs/recipes/spring-security-auth.md` (in the webstack plugin) for the recommended path: self-implemented Spring Security 6 with JWT (Nimbus) + BCrypt for password hashing, or OAuth2 social login.
+2. Add an `auth` bounded context as a regular feature: `/webstack:feature auth`. The `feature-architect` SubAgent will scaffold a `User` aggregate, `LoginUseCase`, `RegisterUseCase`, etc.
+3. Tighten the `SecurityFilterChain` to require authentication on protected endpoints; expose `/api/auth/login`, `/api/auth/register` as the only `permitAll` paths.
+
+If you answered **No** to the auth prompt during init, this section does not apply — the project starts and stays without Spring Security on the classpath. You can switch later by adding `spring-boot-starter-security` to `build.gradle.kts` and following the same recipe.
+
 ## Sources
 
 - Vercel environment variables: https://vercel.com/docs/projects/environment-variables
 - OCI API signing keys: https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
-- Supabase API keys: https://supabase.com/docs/guides/api/api-keys
-- Terraform install: https://developer.hashicorp.com/terraform/install
+- OpenTofu install: https://opentofu.org/docs/intro/install/
+
+Last verified: 2026-04-27.

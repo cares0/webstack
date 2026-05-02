@@ -1,37 +1,45 @@
 # Supabase Setup
 
-> Reference for the infra skill, build-be SubAgent, and terraform-plan-analyzer. Covers Supabase project provisioning, connection strings, API keys, schema management, Row Level Security (RLS), JWT integration with Spring, and `terraform-provider-supabase`.
+> Reference for the infra skill, build-be SubAgent, and tofu-plan-analyzer. Covers Supabase project provisioning, connection strings, schema management with Flyway, and the `supabase/supabase` IaC provider. **webstack uses Supabase strictly as a managed Postgres host** — Auth, Storage, Realtime, Edge Functions are not used.
 
-## Why Supabase for DB + Auth
+## Why Supabase (managed Postgres)
 
-Supabase wraps Postgres with adjacent services in one provider:
+webstack's Supabase dependency is **Postgres only**. Supabase happens to bundle Auth, Storage, Realtime, and Edge Functions on top of a Postgres instance, but webstack does not adopt those layers — the backend (Spring on Oracle Cloud) connects to Postgres over JDBC and treats the database as a plain relational store. Authorization lives in Spring; file uploads (if needed) belong to a future feature decision; realtime updates use whatever channel the feature picks.
 
-- **Postgres** — full Postgres 15+ instance with extensions (pgvector, pg_cron, postgis), exposed via JDBC and via PostgREST.
-- **Auth** — email/password, magic link, social OAuth (Google, GitHub, etc.), JWT issuance, all stored in the same Postgres.
-- **Storage** — S3-compatible file storage with RLS-aware access control.
-- **Edge Functions** — Deno runtime functions deployable per-project.
-- **Realtime** — WebSocket subscriptions to row changes.
+The choice of Supabase as the Postgres host is driven by:
 
-For early-stage products, owning a full Postgres without operational overhead is the main value. webstack uses Supabase for the database and Auth; the backend (on Oracle Cloud Compute) connects to Supabase Postgres over JDBC and verifies Supabase-issued JWTs.
+- **Free tier**: 500 MB database, daily backups, no card surprises. Sufficient for development, MVP, and early production traffic.
+- **Operational simplicity**: zero-ops Postgres with a UI for SQL inspection, no backup scripts to maintain, no `pg_upgrade` to run.
+- **Standard Postgres**: extensions (pgvector, pg_cron, postgis) available; everything that works in Postgres 15+ works here. No proprietary lock-in at the SQL level — the data and migrations are portable.
 
-Self-hosted Supabase is also possible but offsets the operational simplicity that motivates the choice. Stick with hosted unless data residency or air-gap requirements force the issue.
+The Supabase-specific layer used by webstack is small: project provisioning via the IaC provider, connection strings exposed by the dashboard, and the daily backup behavior. Everything else is plain Postgres.
 
 ## Free tier limits
 
-The free tier as of 2025:
+The free tier as of 2026:
 
 - **2 free projects** per organization. Additional projects require Pro ($25/mo/project).
-- **500 MB database** per project (Postgres data, indexes, WAL).
-- **1 GB file storage** per project.
-- **5 GB egress per month** combined across services.
-- **50,000 monthly active users (MAU)** for Auth.
-- **2 GB bandwidth** for Realtime.
+- **500 MB database** per project (Postgres data, indexes, WAL — usable space is closer to 300 MB once indexes and WAL are accounted for).
+- **5 GB egress per month**.
 - **Project pauses after 7 consecutive days of inactivity.** Auto-resumes on next request (cold-start latency ~30 seconds).
 - **Daily backups** (point-in-time recovery is Pro-only).
 
-Pause behavior matters for webstack: a hobby project with no traffic will pause; the next user request triggers resume but takes time. For staging environments with regular activity this is rarely an issue.
-
 Verify current tier numbers at https://supabase.com/pricing — limits change quarterly.
+
+> **Pause behavior gotcha:**
+>
+> A free Supabase project that receives no requests for 7 days is **paused**. The next request after pause triggers a resume that takes **~30 seconds** before the API returns. For a staging environment that's hit regularly this is invisible; for a public landing page with sporadic traffic, the first user of the day waits half a minute. Two mitigations:
+>
+> 1. **Health-check cron** from any always-on host every 6 hours — a periodic JDBC `SELECT 1` (or a Spring `/actuator/health` ping that touches the DB) keeps the project active.
+> 2. **Upgrade to Pro** ($25/month) — Pro projects never pause and gain point-in-time recovery, an extra 5 GB egress, and more compute headroom.
+>
+> webstack's free-tier flow assumes you accept the pause behavior in dev/staging and upgrade for prod once user traffic justifies it.
+
+A second free-tier gotcha worth tracking:
+
+> **DB size gotcha:**
+>
+> The 500 MB cap counts indexes, WAL, and bloat in addition to row data. A project with ~10 average tables typically reaches the cap at 100k–250k rows of business data. Monitor on Supabase Console → Project Settings → Usage. Plan for migration to Pro when usage crosses 350 MB.
 
 ## Sign-up & project
 
@@ -68,103 +76,26 @@ In webstack:
 
 Set both as separate env vars: `DATABASE_URL` (pooled) and `DATABASE_DIRECT_URL` (direct). Spring app reads `DATABASE_URL`; the Flyway CLI / Gradle task reads `DATABASE_DIRECT_URL`.
 
-## API keys
+These two connection strings + the database password are the **only** things webstack needs from Supabase at runtime. There are no anon keys, no service-role keys, no JWT secrets — those belong to the Auth/PostgREST layer that webstack does not use.
 
-Each Supabase project has two API keys:
+## Schema management
 
-- **`anon` key** — safe to ship in the client bundle. Calls go through PostgREST and **must be authorized by Row Level Security policies**. A leaked anon key is no worse than the RLS policies allow.
-- **`service_role` key** — bypasses RLS entirely. Full admin access to the database. **Server-only.** Never include in any frontend bundle or commit to a repo.
+**Spring Flyway** is the sole schema source of truth. `src/main/resources/db/migration/V*.sql` files run on app start in dev or via CI in prod. The Spring app owns DDL; Supabase's SQL editor is read-only for schema in production.
 
-Find both at **Project Settings** → **API**.
-
-webstack convention:
-
-- **Backend (Spring on Oracle Cloud)** uses neither anon nor service_role for normal app traffic — it uses the **direct database credentials** (the Postgres password from project provisioning). The service_role key is only for Supabase-specific admin operations (e.g., creating users via Auth admin API).
-- **Frontend (Next.js)** ships `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for the rare cases where the FE needs direct Supabase access (most webstack apps go FE → Spring → Supabase, not FE → Supabase).
-
-## Schema in webstack
-
-Two paths for owning the schema:
-
-1. **Spring Flyway** (webstack default) — `src/main/resources/db/migration/V*.sql` files run on app start in dev or via CI in prod. The Spring app is the source of truth; Supabase's SQL editor is read-only for schema in prod.
-2. **Supabase migrations** (`supabase/migrations/*.sql`) — managed via `supabase migration new` CLI. Useful when the FE/edge functions need their own schema changes independent of Spring.
-
-webstack v1 picks (1) for simplicity: one schema source. If both apps own pieces of the schema, switch to (2) and remove Flyway from Spring (or scope Flyway to Spring-only tables).
-
-Direct edits in the Supabase SQL editor should be reserved for ad-hoc inspection. Any schema change written there must be exported as a Flyway migration and deleted from the editor before merging.
-
-## Row Level Security
-
-RLS is Supabase's first-class authorization model. Every table accessed via the **anon** key (or any authenticated user's JWT-derived role) must have RLS policies; tables without policies are inaccessible by default once RLS is enabled. The **service_role** key bypasses all policies.
-
-```sql
--- Enable RLS on a table
-ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
-
--- Policy: users can read their own projects
-CREATE POLICY "owner can read"
-  ON projects FOR SELECT
-  USING (auth.uid() = owner_id);
-
-CREATE POLICY "owner can insert"
-  ON projects FOR INSERT
-  WITH CHECK (auth.uid() = owner_id);
-
-CREATE POLICY "owner can update"
-  ON projects FOR UPDATE
-  USING (auth.uid() = owner_id)
-  WITH CHECK (auth.uid() = owner_id);
+```text
+src/main/resources/db/migration/
+├── V1__init.sql
+├── V2__add_invoice_table.sql
+└── V3__add_finalized_at.sql
 ```
 
-`auth.uid()` returns the user UUID embedded in the JWT. `auth.role()` returns `authenticated` or `anon`.
+webstack does **not** use the Supabase migration CLI (`supabase migration new`, `supabase db push`). One schema source — Flyway — is enough. Direct edits in the Supabase SQL editor should be reserved for ad-hoc inspection; any schema change written there must be exported as a Flyway migration before merging.
 
-**Critically for webstack**: when Spring connects with the direct database password (not via Supabase's API gateway), it uses the **postgres** superuser-equivalent role and **bypasses RLS**. RLS only kicks in when calls go through PostgREST (Supabase's API layer) or via the JWT-aware Postgres roles `authenticated` and `anon`.
+For integration testing, Flyway runs against a Testcontainers `PostgreSQLContainer` — see `docs/backend/jpa-patterns.md` "Verifying migrations with TestContainers".
 
-webstack's recommended split:
+## supabase/supabase provider
 
-- **Backend operations** (Spring) — authorize at the application layer (Spring Security + your domain rules). RLS is not the primary defense for backend-routed traffic.
-- **Frontend-direct operations** (rare) — when the FE talks to Supabase directly (e.g., realtime subscriptions, Storage uploads), RLS **is** the primary defense. Always enable RLS on tables the anon key can reach.
-- **Shared tables** (auth.users, profiles) — enable RLS even if Spring is the primary writer; the policies prevent accidental anon-key reads.
-
-## Auth integration with Spring
-
-Supabase Auth issues JWTs signed with the project's JWT secret (HS256) or asymmetric keys (RS256, ES256 — newer projects). Spring decodes them via `spring-boot-starter-oauth2-resource-server`.
-
-`application.yaml`:
-
-```yaml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # HS256 default: new Supabase projects sign JWTs symmetrically with the
-          # project's JWT secret (find it in Project Settings → API → JWT Settings).
-          # Provide the shared secret as an environment variable; do NOT commit it.
-          secret-key: ${SUPABASE_JWT_SECRET}
-```
-
-`spring-boot-starter-oauth2-resource-server` doesn't decode HS256 out of the box — register a `JwtDecoder` bean using `NimbusJwtDecoder.withSecretKey(...)` with the secret as a `SecretKeySpec`. Reference: <https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html#oauth2resourceserver-jwt-decoder>.
-
-For projects that have **opted into asymmetric signing** (Project Settings → JWT Signing Keys → migrate to ES256/RS256), use the JWKS endpoint instead:
-
-```yaml
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://<project_ref>.supabase.co/auth/v1
-          jwk-set-uri: https://<project_ref>.supabase.co/auth/v1/.well-known/jwks.json
-```
-
-(webstack recommendation: enable asymmetric signing during initial Supabase project setup so Spring Resource Server can verify with `jwk-set-uri` without needing the shared secret in the backend environment. The default HS256 path works but ties one more secret to the deploy story.)
-
-The frontend calls `supabase.auth.signIn(...)` to obtain a JWT, then sends it as `Authorization: Bearer <token>` to the Spring backend. Spring extracts the user UUID from the JWT's `sub` claim and treats it as the `userId` in domain code.
-
-## terraform-provider-supabase
-
-A community provider (`supabase/supabase`) covers project provisioning. As of 2025 it is younger than `vercel/vercel` or `oracle/oci` — coverage is project-level, not full Postgres schema management.
+A community provider (`supabase/supabase`) covers project provisioning. As of 2026 it is younger than `vercel/vercel` or `oracle/oci` — coverage is project-level. The HCL is identical for OpenTofu and Terraform; the `terraform { ... }` block name is preserved by OpenTofu for portability.
 
 ```hcl
 terraform {
@@ -196,44 +127,25 @@ resource "supabase_branch" "preview" {
 
 **Branches** (Pro feature) provision separate Postgres instances for preview deployments. Free tier projects use a single branch.
 
-The Terraform provider does **not** manage schema, RLS policies, or Auth settings. Those go via Flyway (schema), SQL files (RLS — included in the same Flyway migration), and Supabase Console UI (Auth providers — one-time setup).
-
-## supabase CLI
-
-For local Supabase emulation and for projects choosing path (2) above:
-
-```bash
-brew install supabase/tap/supabase
-supabase init                           # creates supabase/ folder
-supabase start                          # launches local Supabase (Postgres + Studio + Auth)
-supabase migration new add_projects     # scaffold a new migration
-supabase db push                        # apply migrations to linked remote project
-supabase functions deploy <name>         # deploy Edge Function
-```
-
-webstack v1 uses Spring + Flyway for schema management and skips `supabase db push`. The CLI is still useful for `supabase start` (local development against an emulated Supabase).
+The IaC provider does **not** manage schema. Schema goes via Flyway only.
 
 ## webstack convention
 
 - **Provider config:** `infrastructure/main.tf` pins `supabase/supabase ~> 1.0`. Auth via `var.supabase_access_token` (sensitive).
 - **Project resource:** `infrastructure/supabase.tf` creates one `supabase_project` per environment. Outputs:
-  - `supabase_url` (for `NEXT_PUBLIC_SUPABASE_URL`).
-  - `supabase_anon_key` (for `NEXT_PUBLIC_SUPABASE_ANON_KEY`, sensitive).
-  - `supabase_service_role_key` (for backend `SUPABASE_SERVICE_ROLE_KEY`, sensitive).
-  - `database_url` (the pooled URL, sensitive).
-  - `database_direct_url` (for Flyway, sensitive).
-- **Schema source of truth:** Spring Flyway under `src/main/resources/db/migration/`. RLS policies are SQL files in the same folder.
-- **Backend ↔ Postgres:** direct credentials (Postgres password). RLS is supplementary for tables the FE may reach.
-- **Frontend ↔ Supabase:** anon key only. service_role NEVER ships to the browser.
-- **JWT validation:** Spring Boot Resource Server with the project's JWKS URL.
+  - `database_url` (the pooled Postgres URL, sensitive).
+  - `database_direct_url` (the direct Postgres URL for Flyway, sensitive).
+- **Schema source of truth:** Spring Flyway under `src/main/resources/db/migration/`. No `supabase/migrations/` folder.
+- **Backend ↔ Postgres:** Postgres direct credentials only. The backend reads `DATABASE_URL` (pooled) for app traffic and `DATABASE_DIRECT_URL` (direct) for Flyway.
+- **Frontend ↔ Postgres:** none. The frontend never talks to Postgres directly. All data flows `FE → Spring → Postgres`.
+- **No Auth, Storage, Realtime, Edge Functions.** Authorization is implemented in Spring (see the `auth` recipe at `docs/recipes/spring-security-auth.md` if the project enabled the auth option during init). File uploads, realtime, and edge functions are out of scope; if a feature needs them, the user picks a provider per feature.
 - **Free tier monitoring:** infra skill flags when project count exceeds 2 free projects per org.
 
 ## Sources
 
 - Supabase docs: https://supabase.com/docs
 - Supabase pricing & limits: https://supabase.com/pricing
-- terraform-provider-supabase: https://registry.terraform.io/providers/supabase/supabase/latest/docs
+- supabase/supabase provider (OpenTofu Registry): https://search.opentofu.org/provider/supabase/supabase/latest
 - Connection pooling: https://supabase.com/docs/guides/database/connecting-to-postgres
-- Row Level Security: https://supabase.com/docs/guides/auth/row-level-security
-- Supabase Auth + JWT: https://supabase.com/docs/guides/auth/jwts
-- Supabase CLI: https://supabase.com/docs/guides/cli
+
+Last verified: 2026-04-27.

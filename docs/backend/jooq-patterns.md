@@ -190,8 +190,22 @@ Mixed JPA + jOOQ within a single transaction is supported and routine. Both even
 - **No SQL strings.** `.fetch(sql("SELECT * FROM..."))` exists but defeats type safety. Reserve for true bulk migrations and document the "why" inline.
 - **Choose JPA or jOOQ per query, not per repository.** It is normal for one feature to expose a JPA-backed `InvoiceRepository.save` and a jOOQ-backed `InvoiceQueryAdapter.findRecentSummaries`.
 
+## Kotlin code generation considerations
+
+The `KotlinGenerator` (set in the `build.gradle.kts` snippet above) emits idiomatic Kotlin classes for tables, records, and DAOs. One quirk worth knowing: by default jOOQ generates **all columns as nullable** (`String?`, `Int?`, …) regardless of the database's `NOT NULL` constraints, because jOOQ has no general way to know whether a query selects from a context where the column is provably non-null (joins, outer joins, `COALESCE`, etc.).
+
+The result is `?.` boilerplate in code that semantically should not be nullable. Two practical mitigations:
+
+1. **Generate to typed result with `.into(<Dto>::class.java)`.** Project to a hand-written DTO with the correct nullability per field. The generator's nullable types only matter at the boundary; once you map into a DTO, idiomatic Kotlin types take over. This is webstack's default pattern (see "Reading: typed projections" earlier in this doc).
+2. **Custom code generator template.** For projects that want non-null types directly on the generated record classes, write a custom `JavaWriter` template that consults the column's `NOT NULL` flag. The setup is involved (subclass `KotlinGenerator`, override `generateRecord(...)`); reach for it only if you are reading raw `*Record` types pervasively (which webstack's "DTO boundary always" rule discourages anyway).
+
+If this nullability friction starts to dominate the developer experience, the underlying signal is that you're reading too many raw records. Project to DTOs and the friction disappears.
+
 ## Sources
 
 - jOOQ manual: https://www.jooq.org/doc/latest/manual/
 - gradle-jooq-plugin: https://github.com/etiennestuder/gradle-jooq-plugin
 - Spring Boot jOOQ starter: https://docs.spring.io/spring-boot/reference/data/sql.html#data.sql.jooq
+- jOOQ Kotlin generator: https://www.jooq.org/doc/latest/manual/code-generation/codegen-kotlin/
+
+Last verified: 2026-04-26.
