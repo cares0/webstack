@@ -4,16 +4,6 @@
 > ⚙️ **Optional integration** — activated via init's "Observability" question (`manifest.optional_integrations.observability=true`). Until activated, this document is reference-only; setup steps live in `recipes/observability-setup.md`.
 > Free-tier observability stack: Grafana Cloud LGTM (Loki + Grafana + Tempo + Mimir) + Sentry + UptimeRobot for webstack's 3-repo Vercel + OCI + Supabase deployment.
 
-## Sources canonical
-
-- **Grafana Cloud pricing:** https://grafana.com/pricing/ — _authoritative_
-- **Grafana Cloud OTLP endpoint:** https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/ — _authoritative_
-- **Sentry pricing — Developer plan:** https://docs.sentry.io/product/pricing/ — _authoritative_
-- **UptimeRobot pricing:** https://uptimerobot.com/pricing/ — _authoritative_
-- **Vercel Web Analytics docs:** https://vercel.com/docs/analytics — _community: Vercel-affiliated_
-
----
-
 ## What is webstack observability stack
 
 webstack observability is a coordinated set of free-tier SaaS tools that covers the three golden signals — **metrics**, **logs**, and **traces** — across all three deployment targets simultaneously.
