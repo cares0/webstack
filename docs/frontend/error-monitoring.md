@@ -426,6 +426,6 @@ Sentry.replayIntegration({
 - **sentry-mcp AGENTS.md:** https://github.com/getsentry/sentry-mcp/blob/main/AGENTS.md — _community: Sentry MCP repo agent guide_
 - **Sentry source map documentation:** https://docs.sentry.io/platforms/javascript/sourcemaps/ — _authoritative_
 - **Sentry withSentryConfig API:** https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/ — _authoritative_
-- **Next.js instrumentation hooks:** https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation — _authoritative: Next.js 16 server-side init pattern_
+- **Next.js instrumentation hooks:** https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation — _authoritative_
 
 Last verified: 2026-05-04 (Sentry SDK 8.X / Next.js 16.X / React 19).
