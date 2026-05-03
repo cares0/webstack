@@ -318,6 +318,7 @@ On return, show a recovery banner (`role="status"`, Restore / Discard) rather th
 - **ShadCN MCP server:** https://ui.shadcn.com/docs/mcp — _authoritative_
 - **ShadCN Form component:** https://ui.shadcn.com/docs/components/form — _authoritative_
 - **React 19 — useActionState:** https://react.dev/reference/react/useActionState — _authoritative_
-- **webstack Zustand store patterns:** docs/frontend/client-state.md — _community: webstack internal_
+- **TkDodo — Practical React Query (optimistic updates patterns):** https://tkdodo.eu/blog/practical-react-query — _community: TanStack Query maintainer_
+- **react-hook-form/examples (multi-step + dynamic arrays):** https://github.com/react-hook-form/react-hook-form/tree/master/examples — _community: RHF maintainers (open examples)_
 
 Last verified: 2026-05-04 (RHF 7.X / TanStack Query 5.X / Next.js 16.X / React 19 / Zod 4.X).
