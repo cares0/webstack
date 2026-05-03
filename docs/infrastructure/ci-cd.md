@@ -296,9 +296,9 @@ Use `test-summary` rather than per-entry names (`test (17)`, `test (21)`). This 
 
 ---
 
-## Phase 2 detailed: security scanning
+### Phase 2 detailed: security scanning
 
-### CodeQL
+#### CodeQL
 
 Add `.github/workflows/codeql.yml` to each repo. Use language `javascript-typescript` for FE and `java-kotlin` for BE. Schedule a weekly scan in addition to push/PR triggers. Required permissions: `contents: read`, `security-events: write`.
 
@@ -328,7 +328,7 @@ jobs:
 
 Results appear in Security > Code scanning. Add `codeql` to required checks to block merges on critical/high findings.
 
-### Trivy — SHA pinning required
+#### Trivy — SHA pinning required
 
 > **Warning (2026-03 supply chain incident):** On March 19, 2026, attackers force-pushed malicious code to 75 of 76 version tags in `aquasecurity/trivy-action`. The attack persisted for ~12 hours and exfiltrated secrets from GitHub-hosted runners by dumping the runner process heap. Projects referencing the action by tag were exposed; projects pinned to a commit SHA were not. **Always pin third-party actions by commit SHA, never by tag.**
 
@@ -342,7 +342,7 @@ Results appear in Security > Code scanning. Add `codeql` to required checks to b
 
 Container scan workflow: build the image as `app:${{ github.sha }}`, invoke `aquasecurity/trivy-action` (SHA-pinned, see above) with `format: sarif`, `severity: CRITICAL,HIGH`, `exit-code: 1`, then upload SARIF via `github/codeql-action/upload-sarif` with `if: always()`. Set `permissions: security-events: write` on the job.
 
-### Renovate auto-merge gate
+#### Renovate auto-merge gate
 
 Add `renovate.json` at repo root with `"extends": ["config:base"]`. In `packageRules`:
 
