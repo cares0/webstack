@@ -88,6 +88,13 @@ jobs:
             | sort | head -n -7 | awk '{print $4}' \
             | xargs -I{} aws s3 rm "s3://${{ secrets.OCI_BACKUP_BUCKET }}/daily/{}" \
                 --endpoint-url "$ENDPOINT" || true
+          # Prune weekly on Sundays: keep newest 4
+          if [ "$DOW" = "7" ]; then
+            aws s3 ls "s3://${{ secrets.OCI_BACKUP_BUCKET }}/weekly/" --endpoint-url "$ENDPOINT" \
+              | sort | head -n -4 | awk '{print $4}' \
+              | xargs -I{} aws s3 rm "s3://${{ secrets.OCI_BACKUP_BUCKET }}/weekly/{}" \
+                  --endpoint-url "$ENDPOINT" || true
+          fi
 ```
 
 ### Setup
@@ -193,7 +200,30 @@ RestartSec=5s
 
 ## Supabase MCP integration
 
-The Supabase MCP server (via `supabase/agent-skills`) gives the security-auditor SubAgent access to Supabase project metadata without exposing raw connection strings in prompts. Relevant capabilities:
+### Setup
+
+Add to `.claude/settings.json` under `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=<your-project-ref>&read_only=true"
+    }
+  }
+}
+```
+
+Replace `<your-project-ref>` with your Supabase project reference ID (found in **Project Settings → General**).
+
+Authentication is handled via OAuth 2.1 — the MCP client will prompt for login on first use. No static `SUPABASE_ACCESS_TOKEN` env var is required for the HTTP transport.
+
+**Permission scope:** `read_only=true` is recommended for backup workflows. This prevents any accidental writes to the Supabase project during monitoring tasks. Never point this at a production project from a shared or untrusted Claude session.
+
+### What the agent can do
+
+The Supabase MCP server gives the security-auditor SubAgent access to Supabase project metadata without exposing raw connection strings in prompts. Relevant capabilities:
 
 - **Backup age check**: list the 10 most recent objects under `daily/` in the OCI backup bucket; parse the timestamp from `backup-YYYYMMDDTHHMMSSZ.sql.gz`; alert if older than 26 hours (missed daily run).
 - **Manual trigger**: invoke `workflow_dispatch` on `db-backup.yml` via the GitHub CLI if the backup is stale.
