@@ -4,8 +4,6 @@
 
 Lefthook + commitlint + ktlint across all three webstack repos (frontend, backend, infrastructure). Catches formatting and commit-message issues at the moment of `git commit`, before anything reaches CI.
 
-Last verified: 2026-05-04 (lefthook 1.X / commitlint 19.X / ktlint 1.X).
-
 ---
 
 ## What is webstack pre-commit
@@ -256,7 +254,7 @@ commit-msg:
 
 Notes:
 
-- `tofu fmt` accepts a list of file paths and formats them in-place. Passing `{staged_files}` limits formatting to staged `.tf` files.
+- `tofu fmt` accepts a list of file paths and formats them in-place. Passing `{staged_files}` limits formatting to staged `.tf` files. Lefthook splits `{staged_files}` into individual paths, so multiple files are handled correctly.
 - `tofu fmt` is idempotent — running it on an already-formatted file is a no-op.
 - `*.tfvars` files are intentionally excluded from the glob (they contain values, not HCL structure, and are often in `.gitignore`).
 - The commit-msg job is identical across all three repos — commitlint config is the shared convention.
@@ -388,10 +386,12 @@ Run `lefthook install` once from the **main working tree** after cloning, not fr
 
 ## Sources
 
-1. Lefthook official documentation — `https://lefthook.dev/llms.txt` _authoritative_
-2. Lefthook GitHub repository — `https://github.com/evilmartians/lefthook` _authoritative_
-3. commitlint getting started guide — `https://commitlint.js.org/guides/getting-started.html` _authoritative_
-4. ktlint Gradle integrations — `https://pinterest.github.io/ktlint/latest/install/integrations/` _authoritative_
-5. Conventional Commits 1.0 specification — `https://www.conventionalcommits.org/en/v1.0.0/` _authoritative_
-6. webstack shared/conventions/conventional-commits.md — scope table and type enum _authoritative_
-7. jlleitschuh/ktlint-gradle plugin — `https://github.com/jlleitschuh/ktlint-gradle` _community: jlleitschuh_
+- **Lefthook official documentation:** https://lefthook.dev/llms.txt — _authoritative_
+- **Lefthook GitHub repository:** https://github.com/evilmartians/lefthook — _authoritative_
+- **commitlint getting started guide:** https://commitlint.js.org/guides/getting-started.html — _authoritative_
+- **ktlint Gradle integrations:** https://pinterest.github.io/ktlint/latest/install/integrations/ — _authoritative_
+- **Conventional Commits 1.0 specification:** https://www.conventionalcommits.org/en/v1.0.0/ — _authoritative_
+- **webstack `shared/conventions/conventional-commits.md`:** internal — _authoritative; bundled with this plugin_
+- **jlleitschuh/ktlint-gradle plugin:** https://github.com/jlleitschuh/ktlint-gradle — _community: jlleitschuh_
+
+Last verified: 2026-05-04 (lefthook 1.X / commitlint 19.X / ktlint 1.X).
