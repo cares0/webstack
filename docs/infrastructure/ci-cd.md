@@ -12,7 +12,7 @@ webstack manages three sibling git repositories:
 
 | Repo | Stack | Artifact |
 |---|---|---|
-| `*-frontend` | Next.js 15 + pnpm | Vercel deployment |
+| `*-frontend` | Next.js 16 + pnpm | Vercel deployment |
 | `*-backend` | Spring Boot 3 + Gradle | OCI Compute JAR |
 | `*-infrastructure` | OpenTofu | State in OCI Object Storage |
 
@@ -193,12 +193,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a3252b7022e6e49803e7c4c7b1c48da20d7bbf2e # v4.1.0
+        if: ${{ hashFiles('pnpm-lock.yaml') != '' }}
+        with:
+          version: 9
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ inputs.node-version }}
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || '' }}
       - run: |
           if [ -f "pnpm-lock.yaml" ]; then
-            npm i -g pnpm && pnpm install --frozen-lockfile && pnpm lint
+            pnpm install --frozen-lockfile && pnpm lint
           elif [ -f "gradlew" ]; then ./gradlew ktlintCheck
           fi
 ```
@@ -225,19 +230,9 @@ Vercel OIDC federation is available on Pro/Enterprise only. Hobby tier must cont
 
 For Pro/Enterprise: In Vercel dashboard → Team Settings > Security > Identity Providers, add an OIDC provider with issuer `https://token.actions.githubusercontent.com` and subject `repo:<org>/<repo>:ref:refs/heads/main`. In the workflow, add `id-token: write` and use `actions/github-script` to call `core.getIDToken('vercel.com')`, then exchange the returned JWT for a short-lived Vercel token via the Vercel REST API token-exchange endpoint before running `vercel deploy --token <short-lived>`.
 
-### OCI OIDC via Identity Propagation Trust
+### OCI CI authentication (key-based)
 
-OCI Identity Domains support OIDC through Workload Identity Providers.
-
-**Setup (OCI Console):**
-
-1. Identity & Security > Identity > Domains > your domain > Identity providers > Create (OpenID Connect). Set issuer `https://token.actions.githubusercontent.com`, discovery URI `https://token.actions.githubusercontent.com/.well-known/openid-configuration`, claim mapping `sub` → `repo:<org>/<repo>:ref:refs/heads/main`.
-
-2. Create a Dynamic Group matching workload tokens: `request.principal.type = 'workload'` with `request.principal.source.issuer = 'https://token.actions.githubusercontent.com'`.
-
-3. Create an IAM Policy: `Allow dynamic-group GitHubActionsGroup to manage objects in compartment <name>`.
-
-4. In the workflow, add `id-token: write` and use `oracle-actions/configure-oracle-cloud` (SHA-pinned):
+OCI does not have a widely-available first-party GitHub Actions OIDC action. webstack uses **API key-based authentication** in CI: the private key, fingerprint, user OCID, tenancy OCID, and region are stored as GitHub Secrets and injected into the OCI CLI config at job start.
 
 ```yaml
 jobs:
@@ -245,19 +240,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     environment: production
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: oracle-actions/configure-oracle-cloud@fc11b9f7eb28d71e31ad65a0e6eba1a8ad55e0e0 # v1.3.2
-        with:
-          user: ${{ vars.OCI_USER_OCID }}
-          tenancy: ${{ vars.OCI_TENANCY_OCID }}
-          region: ${{ vars.OCI_REGION }}
+      - name: Configure OCI CLI
+        run: |
+          mkdir -p ~/.oci
+          echo "[DEFAULT]" > ~/.oci/config
+          echo "user=${{ secrets.OCI_USER_OCID }}" >> ~/.oci/config
+          echo "tenancy=${{ secrets.OCI_TENANCY_OCID }}" >> ~/.oci/config
+          echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
+          echo "key_file=~/.oci/oci_api_key.pem" >> ~/.oci/config
+          echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> ~/.oci/config
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > ~/.oci/oci_api_key.pem
+          chmod 600 ~/.oci/oci_api_key.pem
       - run: ./gradlew bootJar
 ```
 
-After migration, remove secrets `OCI_PRIVATE_KEY` and `OCI_FINGERPRINT`. The remaining vars are non-sensitive and can live as repository variables.
+Rotate `OCI_PRIVATE_KEY` and `OCI_FINGERPRINT` annually. Scope the IAM policy to the minimum compartment and object operations needed for deployment.
 
 ---
 
@@ -373,11 +373,11 @@ Add `renovate.json` at repo root with `"extends": ["config:base"]`. In `packageR
 
 ## Sources
 
-- GitHub Actions OIDC documentation: https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect _authoritative_
-- GitHub Actions reusable workflows: https://docs.github.com/en/actions/sharing-automations/reusing-workflows _authoritative_
-- Trivy GitHub Actions supply chain compromise (March 2026): https://snyk.io/articles/trivy-github-actions-supply-chain-compromise/ _community: Snyk security research_
-- Vercel agent skills (community reference, Vercel-affiliated): https://github.com/vercel-labs/agent-skills _community: vercel-labs_
-- OCI Workload Identity Providers: https://docs.oracle.com/en-us/iaas/Content/Identity/workloadidentity/manage-identity-domains-workload-identity-providers.htm _authoritative_
-- gradle/actions setup-gradle: https://github.com/gradle/actions/blob/main/setup-gradle/README.md _authoritative_
+- **GitHub Actions OIDC documentation:** https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect — _authoritative_
+- **GitHub Actions reusable workflows:** https://docs.github.com/en/actions/sharing-automations/reusing-workflows — _authoritative_
+- **Trivy GitHub Actions supply chain compromise (March 2026):** https://snyk.io/articles/trivy-github-actions-supply-chain-compromise/ — _community: Snyk security research_
+- **Vercel agent skills:** https://github.com/vercel-labs/agent-skills — _community: vercel-labs_
+- **OCI Workload Identity Providers:** https://docs.oracle.com/en-us/iaas/Content/Identity/workloadidentity/manage-identity-domains-workload-identity-providers.htm — _authoritative_
+- **gradle/actions setup-gradle:** https://github.com/gradle/actions/blob/main/setup-gradle/README.md — _authoritative_
 
-Last verified: 2026-05-04 (GitHub Actions latest / actions/checkout@v5 / actions/setup-java@v5 / setup-node@v5).
+Last verified: 2026-05-04 (GitHub Actions / actions/checkout@v4 / actions/setup-java@v4 / setup-node@v4 / pnpm/action-setup@v4).
