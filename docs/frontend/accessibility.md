@@ -125,6 +125,8 @@ Add a skip link as the first focusable element in `<body>`:
 
 ShadCN components are Radix primitives + `cva` styling. Accessibility is Radix's responsibility; visuals are ShadCN's. Key Radix behaviors:
 
+See also: `docs/frontend/shadcn-customization.md` for cva variant patterns and `cn()` utility.
+
 | Component | ARIA pattern | Built-in behavior |
 |---|---|---|
 | `Dialog` | Modal dialog | Focus trap, Esc dismiss, `aria-modal="true"`, `role="dialog"` |
@@ -273,6 +275,8 @@ Setup — add to `.claude/settings.json` mcpServers:
 
 Or: `claude mcp add playwright npx @playwright/mcp@latest`
 
+See `docs/frontend/testing-strategy.md` § Playwright MCP integration for the full `mcpServers` config.
+
 ### Accessibility tree inspection
 
 Playwright MCP returns **structured accessibility snapshots** — the page's accessibility tree (roles, names, states, hierarchy) rather than pixels. Unlabeled inputs, missing heading hierarchy, and incorrect roles are immediately visible.
@@ -311,6 +315,6 @@ Playwright MCP is for exploratory, ad-hoc inspection during development. Use `@a
 - **Playwright MCP getting started:** https://playwright.dev/docs/getting-started-mcp — _authoritative (Microsoft / G1)_
 - **@axe-core/playwright:** https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright — _authoritative_
 - **WAI-ARIA Authoring Practices 1.2:** https://www.w3.org/WAI/ARIA/apg/ — _authoritative_
-- **WebAIM contrast checker:** https://webaim.org/resources/contrastchecker/ — _community_
+- **WebAIM contrast checker:** https://webaim.org/resources/contrastchecker/ — _community: WebAIM_
 
 Last verified: 2026-05-04 (axe-core 4.10 / Playwright 1.X / WCAG 2.2 / React 19 / Next.js 16.X).

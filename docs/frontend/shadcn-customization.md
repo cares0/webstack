@@ -2,6 +2,8 @@
 
 > Reference for design-system-architect SubAgent and build-fe. Covers ShadCN UI install, theme.css mapping, components.json schema, cva variants, and Radix composition.
 
+For accessibility patterns on ShadCN primitives, see `docs/frontend/accessibility.md`.
+
 ## What ShadCN is (and isn't)
 
 ShadCN UI is **not** a component library you install from npm. It is a CLI that copies pre-built React component source code (built on Radix primitives + Tailwind utility classes) into your repo. After install, the components live under whatever path the `components.json` `aliases.ui` field points to — webstack's convention is `src/shared/ui/` (the FSD-lite `shared` layer; the ShadCN default `src/components/ui/` is overridden in init). You own the files: edit, delete, restyle freely. There is no version lockstep with an upstream package; the "library" is whatever you copied at the time you ran the CLI.
