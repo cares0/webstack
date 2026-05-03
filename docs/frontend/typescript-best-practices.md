@@ -11,7 +11,7 @@ Two artefacts form the foundation:
 
 **1. The `tsconfig.json` strict baseline.** webstack projects ship with `strict: true` and four additional flags that `strict` does not enable. These flags are discussed in detail in `## webstack convention`.
 
-**2. The generated SDK in `src/shared/api/generated/`.** `@hey-api/openapi-ts` reads the OpenAPI contract and emits fully-typed request/response types, service functions, and (when configured) Zod schemas. These generated types are the canonical representation of every HTTP boundary. Application code composes *from* them using `Pick`, `Omit`, and intersection types rather than redefining parallel shapes.
+**2. The generated SDK in `src/shared/api/generated/`.** `@hey-api/openapi-ts` reads the OpenAPI contract and emits fully-typed request/response types, service functions, and (when configured) Zod schemas. These generated types are the canonical representation of every HTTP boundary. Application code composes _from_ them using `Pick`, `Omit`, and intersection types rather than redefining parallel shapes.
 
 Together, the strict baseline and the generated SDK mean TypeScript can catch entire classes of error — missing required fields in API payloads, stale field names after a contract update, nullable values passed as non-nullable — before the code runs.
 
@@ -47,7 +47,8 @@ Together, the strict baseline and the generated SDK mean TypeScript can catch en
 
 | Flag | What it adds beyond `strict` |
 |------|------------------------------|
-| `strict` | Enables `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, `strictBindCallApply`, and `useUnknownInCatchVariables`. |
+| `strict` | Enables `alwaysStrict`, `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`, `strictPropertyInitialization`, `strictBindCallApply`, and `useUnknownInCatchVariables`. |
+| `alwaysStrict` | (included in `strict`) Emits `"use strict"` at the top of every output file and parses each file in strict mode. |
 | `noUncheckedIndexedAccess` | Adds `\| undefined` to every index-signature access (`obj[key]`, `arr[i]`). Forces a guard before use. |
 | `exactOptionalPropertyTypes` | `{ a?: string }` means `a` may be absent but not `undefined`. Prevents `obj.a = undefined` unless the type explicitly includes `\| undefined`. |
 | `noImplicitOverride` | Subclass methods that override a base class method must carry the `override` keyword. Prevents silent divergence when a base method is renamed. |
@@ -55,7 +56,7 @@ Together, the strict baseline and the generated SDK mean TypeScript can catch en
 
 ### `satisfies` for object literals
 
-Use `satisfies` when you want the compiler to validate an object literal against a type *without* widening the inferred type. This is the right tool for route config maps, event-handler maps, and any literal that must conform to a wider type while keeping its narrow inference downstream.
+Use `satisfies` when you want the compiler to validate an object literal against a type _without_ widening the inferred type. This is the right tool for route config maps, event-handler maps, and any literal that must conform to a wider type while keeping its narrow inference downstream.
 
 ```ts
 // src/shared/config/routes.ts
@@ -71,7 +72,7 @@ export const navRoutes = {
 // not RouteConfig — specificity is preserved
 ```
 
-Do not use `as NavRoutes` here — a type assertion bypasses the compiler check and will silently accept a wrong shape. `satisfies` validates *and* preserves.
+Do not use `as NavRoutes` here — a type assertion bypasses the compiler check and will silently accept a wrong shape. `satisfies` validates _and_ preserves.
 
 ### Brand types
 
@@ -126,7 +127,7 @@ The `never` parameter is what triggers the check. A plain `throw new Error(...)`
 
 ## Zod ↔ TypeScript inference
 
-This section covers *type inference patterns* only. For form integration (React Hook Form + Zod), see `docs/frontend/rhf-zod.md`.
+This section covers _type inference patterns_ only. For form integration (React Hook Form + Zod), see `docs/frontend/rhf-zod.md`.
 
 ### `z.infer` — the primary inference utility
 
@@ -144,7 +145,7 @@ type CreateProjectInput = z.infer<typeof createProjectSchema>
 // { name: string; description?: string | undefined; workspaceId: string }
 ```
 
-Always derive the type with `z.infer<typeof schema>` rather than writing a parallel interface. The schema *is* the source of truth; the interface is a consequence.
+Always derive the type with `z.infer<typeof schema>` rather than writing a parallel interface. The schema _is_ the source of truth; the interface is a consequence.
 
 ### `z.input<>` vs `z.output<>` — when they diverge
 
@@ -175,7 +176,7 @@ type Out = z.output<typeof withDefault>  // { pageSize: number }
 
 ### Combining Zod with generated SDK types
 
-`@hey-api/openapi-ts` generates TypeScript types in `src/shared/api/generated/`. These represent the contract. Zod schemas live in `src/features/<feature>/model/schema.ts` and represent the *form input*. They overlap but are not identical — a form may collect a subset of a request body and add client-side-only fields.
+`@hey-api/openapi-ts` generates TypeScript types in `src/shared/api/generated/`. These represent the contract. Zod schemas live in `src/features/<feature>/model/schema.ts` and represent the _form input_. They overlap but are not identical — a form may collect a subset of a request body and add client-side-only fields.
 
 The pattern is to derive the Zod schema from the generated type where possible:
 
@@ -199,15 +200,11 @@ export const createProjectSchema = z.object({
 
 The `satisfies z.ZodType<GeneratedType>` pattern is the bridge: the schema is still Zod (with validations), but the compiler confirms it aligns with the contract type.
 
-## Composing generated SDK types
-
-### Rules
+### Composing generated SDK types
 
 1. **Never modify files in `src/shared/api/generated/`.** They are regenerated by `pnpm gen:api` and any edits are overwritten.
 2. **Compose, don't copy.** Use TypeScript utility types on the generated types rather than writing parallel interfaces.
 3. **Wrap in a domain type when the shape should diverge.** If the application's mental model of an entity differs from the API's (e.g., the API returns flat data the app groups), create a domain type in `src/entities/<entity>/model/`.
-
-### Utility type composition
 
 ```ts
 // src/entities/project/model/project.ts
@@ -223,18 +220,7 @@ export type ProjectUpdatePayload = Omit<ApiProject, 'id' | 'createdAt' | 'update
 export type ProjectWithStatus = ApiProject & { uiStatus: 'loading' | 'idle' | 'error' }
 ```
 
-### When to wrap in a domain type vs use directly
-
-**Use the generated type directly** in:
-
-- `src/entities/<entity>/api/` — query functions return the generated type
-- `src/shared/ui/` components that are purely presentational and own no business logic
-
-**Wrap in a domain type** when:
-
-- The application needs computed or derived fields not present in the API response
-- The entity layer normalises data (e.g., parses ISO strings to `Date` objects via a Zod transform)
-- Multiple API resources are combined into one application concept
+**Use the generated type directly** in `src/entities/<entity>/api/` (query functions) and purely presentational `src/shared/ui/` components. **Wrap in a domain type** when the app needs computed fields, normalised dates, or combined API resources:
 
 ```ts
 // domain type with parsed dates — the only place that transforms createdAt
@@ -256,6 +242,30 @@ Server Components serialize props to pass them to Client Components — the boun
 ## Anti-patterns
 
 **`any` and `as any`.** Assigning `any` or casting through `any` disables the type system for that value and everything that depends on it. The only tolerable use is a transitional `// TODO: remove any` comment with a linked ticket. Never in reviewed code.
+
+**Using `any` instead of `unknown` for unknown types.** When a value's type is genuinely unknown — a `catch` clause, an untyped JSON payload, a third-party callback — reach for `unknown`, not `any`. `unknown` forces you to narrow before use; `any` silently permits every operation.
+
+```ts
+// Bad — e is any, compiler cannot catch misuse
+try {
+  await doSomething()
+} catch (e) {
+  console.error(e.message) // no error, but crashes if e is not an Error
+}
+
+// Good — e is unknown, narrowed before use
+try {
+  await doSomething()
+} catch (e: unknown) {
+  if (e instanceof Error) {
+    console.error(e.message)
+  } else {
+    console.error(String(e))
+  }
+}
+```
+
+`useUnknownInCatchVariables` (enabled by `strict: true`) automatically types `catch (e)` as `unknown`, but the pattern above applies to any function that returns or accepts an opaque value.
 
 **`@ts-ignore` without explanation.** `@ts-ignore` silently suppresses all errors on the next line and is invisible in diff review. Use `@ts-expect-error` instead — it requires a comment explaining the reason, and it errors when the suppression is no longer needed:
 
@@ -303,13 +313,14 @@ Exception: test setup code (`beforeEach` declarations) where the assignment is s
 
 ## Sources
 
-- **TypeScript Handbook — Everyday Types:** https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — *authoritative*
-- **TypeScript TSConfig reference:** https://www.typescriptlang.org/tsconfig/ — *authoritative*
-- **TypeScript 4.9 release notes (`satisfies` operator):** https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html — *authoritative*
-- **TypeScript 5.0 release notes (const type parameters, decorator improvements):** https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html — *authoritative*
-- **Zod docs — Basics (type inference, `z.infer`, `z.input`, `z.output`):** https://zod.dev/basics — *authoritative*
-- **@hey-api/openapi-ts — client docs:** https://heyapi.dev/openapi-ts/clients — *authoritative*
-- **Total TypeScript — Matt Pocock's free tutorials on branded types and satisfies:** https://www.totaltypescript.com/tutorials — *community: Matt Pocock*
+- **TypeScript Handbook — Everyday Types:** https://www.typescriptlang.org/docs/handbook/2/everyday-types.html — _authoritative_
+- **TypeScript TSConfig reference:** https://www.typescriptlang.org/tsconfig/ — _authoritative_
+- **TypeScript 4.9 release notes (`satisfies` operator):** https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-9.html — _authoritative_
+- **TypeScript 5.0 release notes (`moduleResolution: "bundler"` introduction):** https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html — _authoritative_
+- **Zod docs — Basics (type inference, `z.infer`, `z.input`, `z.output`):** https://zod.dev/basics — _authoritative_
+- **@hey-api/openapi-ts — client docs:** https://heyapi.dev/openapi-ts/clients — _authoritative_
+- **Total TypeScript — Matt Pocock's free tutorials on branded types and satisfies:** https://www.totaltypescript.com/tutorials — _community: Matt Pocock_
+- **TypeScript Deep Dive (Basarat Ali Syed):** https://basarat.gitbook.io/typescript — _community: Basarat_
 
 ---
 
