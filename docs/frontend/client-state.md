@@ -43,6 +43,7 @@ For global UI state, define typed slices and compose them into `useUiStore` — 
 ```typescript
 // src/shared/store/sidebarSlice.ts
 import { StateCreator } from 'zustand'
+// import type { ModalSlice } from './modalSlice'
 export type SidebarSlice = { sidebarOpen: boolean; toggleSidebar: () => void }
 export const createSidebarSlice: StateCreator<
   SidebarSlice & ModalSlice, [['zustand/immer', never], ['zustand/devtools', never]], [], SidebarSlice
@@ -62,6 +63,7 @@ export const createModalSlice: StateCreator<
 })
 
 // src/shared/store/ui.ts
+'use client'
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
@@ -111,7 +113,7 @@ The `'use client'` directive is required — the store creates browser-side stat
 
 ### `persist` middleware
 
-Use `persist` when state should survive a full page reload (e.g., sidebar collapsed preference). In Zustand 5, `persist` no longer auto-stores initial state at store creation — call `setState` explicitly if you need the initial value to be written immediately.
+Use `persist` when state should survive a full page reload (e.g., sidebar collapsed preference). In Zustand 5 (and v4.5.5+), `persist` no longer writes dynamically-computed initial state to storage at store creation time — if your initial value is derived at runtime (e.g., `Math.random()`), call `store.setState(...)` explicitly after creating the store. Static initial values are unaffected. See the [v5 migration guide](https://github.com/pmndrs/zustand/blob/main/docs/reference/migrations/migrating-to-v5.md).
 
 ```typescript
 // src/shared/store/preferencesSlice.ts
@@ -200,6 +202,8 @@ export function useHydratedStore<T, S>(
 
 Guard on `undefined` to keep server and first-paint renders identical. The alternative is `persist`'s `skipHydration: true` option with a manual `store.persist.rehydrate()` call inside `useEffect`.
 
+> **Warning:** If `selector` returns a new object or array on every call (e.g., `(s) => ({ a: s.a, b: s.b })`), `useHydratedStore` will re-render infinitely. Wrap such selectors with `useShallow` from `zustand/shallow`.
+
 ## Decision tree: TanStack Query vs Zustand
 
 ```
@@ -215,7 +219,7 @@ Does the data originate from the server?
 |-------|-------|
 | Project list from `/api/projects` | TanStack Query |
 | User profile `/api/me` | TanStack Query |
-| Pagination cursor | TanStack Query (`keepPreviousData`) |
+| Pagination cursor | TanStack Query (`placeholderData: keepPreviousData`) |
 | Selected project ID (filter) | Zustand or `useState` |
 | Modal open/close (cross-feature) | Zustand (`useUiStore`) |
 | Draft text in comment box | Zustand (`features/comment/model/store.ts`) |
@@ -251,7 +255,7 @@ Does the data originate from the server?
 - **Zustand docs — Migrating to v5:** https://github.com/pmndrs/zustand/blob/main/docs/reference/migrations/migrating-to-v5.md — _authoritative_
 - **Zustand docs — Slices pattern:** https://github.com/pmndrs/zustand/blob/main/docs/guides/slices-pattern.md — _authoritative_
 - **Zustand docs — Comparison with other solutions:** https://github.com/pmndrs/zustand/blob/main/docs/learn/getting-started/comparison.md — _authoritative_
-- **Context7 — pmndrs/zustand (middleware + Next.js snippets):** https://context7.com/pmndrs/zustand/llms.txt — _community: Context7 aggregation of pmndrs/zustand source_
+- **vercel-labs/agent-skills — React state best practices:** https://github.com/vercel-labs/agent-skills — _community: Vercel-affiliated_
 
 ---
 
