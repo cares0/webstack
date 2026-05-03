@@ -79,7 +79,7 @@ commitlint enforces Conventional Commits format via the `commit-msg` hook. Setup
 
 ### What git-cliff does
 
-git-cliff is a changelog generator that processes Git history using Conventional Commits and regex-powered custom parsers. It reads commits between two tags, groups them by type, and renders a structured `CHANGELOG.md`. Version 2.13.0 is the latest stable release.
+git-cliff is a changelog generator that processes Git history using Conventional Commits and regex-powered custom parsers. It reads commits between two tags, groups them by type, and renders a structured `CHANGELOG.md`. git-cliff 2.X (latest stable; verify the exact version when running).
 
 The canonical invocation:
 
@@ -126,12 +126,12 @@ split_commits = false
 tag_pattern = "v[0-9].*"
 
 commit_parsers = [
+  { breaking = true,       group = "Breaking Changes" },
   { message = "^feat",     group = "Features"         },
   { message = "^fix",      group = "Bug Fixes"        },
   { message = "^perf",     group = "Performance"      },
   { message = "^refactor", group = "Refactoring"      },
   { message = "^docs|^style|^test|^chore|^ci|^build", skip = true },
-  { breaking = true,       group = "Breaking Changes" },
 ]
 
 filter_commits = false
@@ -140,7 +140,7 @@ sort_commits = "oldest"
 
 ### Tag-push trigger
 
-git-cliff runs in GitHub Actions on every version tag push. Add `.github/workflows/changelog.yml` to the FE and BE repos with `on.push.tags: ['fe/v[0-9]*']` (backend uses `'be/v[0-9]*'`). The job checks out with `fetch-depth: 0` (full history required), installs git-cliff from the GitHub release tarball, runs `git-cliff --tag "${{ github.ref_name }}" -o CHANGELOG.md`, then commits the result back to `main` with `[skip ci]` in the message to prevent re-triggering CI. Grant `permissions: contents: write` on the job; add a `github-actions[bot]` bypass in branch protection or use a PAT.
+git-cliff runs in GitHub Actions on every version tag push. Each repo uses plain `v1.2.3` tags (no `fe/`/`be/`/`infra/` prefix) — see [3-repo version sync](#3-repo-version-sync) for the tag convention. Add `.github/workflows/changelog.yml` to each repo with `on.push.tags: ['v[0-9]*']`. The job checks out with `fetch-depth: 0` (full history required), installs git-cliff from the GitHub release tarball, runs `git-cliff --tag "${{ github.ref_name }}" -o CHANGELOG.md`, then commits the result back to `main` with `[skip ci]` in the message to prevent re-triggering CI. Grant `permissions: contents: write` on the job; add a `github-actions[bot]` bypass in branch protection or use a PAT.
 
 ---
 
@@ -156,8 +156,8 @@ The Vercel MCP server (via `vercel-labs/agent-skills`) gives the `/webstack:depl
 
 The Vercel MCP integration is available as the `mcp__claude_ai_Vercel__*` tool family. Authenticate once per session before running `/webstack:deploy` (`mcp__claude_ai_Vercel__authenticate`). During a deploy:
 
-1. After a successful Vercel build, the agent calls `POST /v1/projects/{id}/rolling-release/approve-stage` to advance from stage 1 to 100% rather than navigating the dashboard.
-2. If the BE health gate fails, the agent calls `POST /v1/projects/{id}/rollback/{deploymentId}` to revert the FE simultaneously, keeping FE and BE versions aligned.
+1. After a successful Vercel build, the agent uses the Vercel MCP server to promote the Rolling Release from stage 1 to 100% rather than navigating the dashboard (underlying REST: `POST /v1/projects/{id}/rolling-release/approve-stage`).
+2. If the BE health gate fails, the agent triggers Instant Rollback via the Vercel MCP server to revert the FE simultaneously, keeping FE and BE versions aligned (underlying REST: `POST /v1/projects/{id}/rollback/{deploymentId}`).
 
 ---
 
@@ -174,8 +174,8 @@ Enable Skew Protection at **Project Settings → Deployment Protection → Skew 
 When a tag push triggers a Vercel build, set a deployment marker in the commit message so the rolling release can be traced back to a git-cliff CHANGELOG entry:
 
 ```bash
-git tag fe/v1.2.3 -m "release: fe/v1.2.3"
-git push origin fe/v1.2.3
+git tag v1.2.3 -m "release: v1.2.3"
+git push origin v1.2.3
 ```
 
 Vercel picks up the tag push as a production promotion trigger if **Auto-assign Production Domain** is enabled (default). The new deployment enters Rolling Release stage 1 automatically.
@@ -300,13 +300,15 @@ last_release:
 
 ### Tag order and drift detection
 
-Tags are pushed in order: `infra/v1.2.3` → `be/v1.2.3` → `fe/v1.2.3`. This guarantees each layer is healthy before the next is exposed. The full release flow:
+**Tag convention:** each repo uses plain `v1.2.3` tags independently (no `fe/`/`be/`/`infra/` prefix). Each repo has its own version; the manifest tracks the triplet.
+
+Tags are pushed in order: `v1.2.3` on infra → `v1.2.3` on backend → `v1.2.3` on frontend. This guarantees each layer is healthy before the next is exposed. The full release flow:
 
 ```
 /webstack:deploy "1.2.3"
-  ├── infra: tofu apply (if changed) → tag infra/v1.2.3
-  ├── backend: deploy JAR → health gate → tag be/v1.2.3
-  └── frontend: push fe/v1.2.3 → Vercel rolling release (canary → approve)
+  ├── infra: tofu apply (if changed) → tag v1.2.3 on infra repo
+  ├── backend: deploy JAR → health gate → tag v1.2.3 on backend repo
+  └── frontend: push v1.2.3 on frontend repo → Vercel rolling release (canary → approve)
 manifest updated; RELEASES.md cross-links generated
 ```
 
