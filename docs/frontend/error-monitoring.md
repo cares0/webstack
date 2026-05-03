@@ -423,7 +423,7 @@ Sentry.replayIntegration({
 - **Sentry MCP overview:** https://docs.sentry.io/ai/mcp/ — _authoritative_
 - **Sentry Next.js setup guide:** https://docs.sentry.io/platforms/javascript/guides/nextjs/ — _authoritative_
 - **Sentry Session Replay privacy:** https://docs.sentry.io/platforms/javascript/session-replay/privacy/ — _authoritative_
-- **sentry-mcp AGENTS.md:** https://github.com/getsentry/sentry-mcp/blob/main/AGENTS.md — _authoritative: Sentry-maintained agent guide_
+- **sentry-mcp AGENTS.md:** https://github.com/getsentry/sentry-mcp/blob/main/AGENTS.md — _community: Sentry MCP repo agent guide_
 - **Sentry source map documentation:** https://docs.sentry.io/platforms/javascript/sourcemaps/ — _authoritative_
 - **Sentry withSentryConfig API:** https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/ — _authoritative_
 - **Next.js instrumentation hooks:** https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation — _authoritative: Next.js 16 server-side init pattern_
