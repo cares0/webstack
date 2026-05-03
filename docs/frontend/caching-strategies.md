@@ -1,6 +1,6 @@
 # Caching strategies (Next.js 16 App Router)
 
-> Reference for `frontend-implementer` SubAgent and `build-fe` skill.
+> Reference for build-fe SubAgent and frontend-implementer.
 > Practical guide to Next.js 16's caching layers, when to opt in/out, and how to drive revalidation from mutations.
 
 ## What is Next.js caching
@@ -13,7 +13,7 @@ Next.js 16 App Router operates four distinct caching layers that work together t
 
 **3. Full Route Cache (build-time HTML + RSC payload).** At build time Next.js pre-renders eligible route segments into HTML and RSC payload. On a cache hit the CDN or edge serves this with zero function invocation. With Cache Components enabled, Partial Prerendering (PPR) is the default: `'use cache'` segments land in the static shell; dynamic parts stream in via `<Suspense>`. Accessing runtime APIs (`cookies()`, `headers()`) or omitting `'use cache'` makes that segment dynamic.
 
-**4. Router Cache (client-side, per-session).** The browser-side cache managed by the Next.js router. RSC payload for previously visited routes is replayed on back/forward navigation without a server round-trip. The server communicates the stale window via `x-nextjs-stale-time` (minimum 30 seconds). Calling `revalidateTag`, `revalidatePath`, or `updateTag` from a Server Action immediately purges all Router Cache entries.
+**4. Router Cache (client-side, per-session).** The browser-side cache managed by the Next.js router. RSC payload for previously visited routes is replayed on back/forward navigation without a server round-trip. The server communicates the stale window via `x-nextjs-stale-time` (minimum 30 seconds). Calling `revalidateTag`, `revalidatePath`, or `updateTag` from a Server Action immediately purges all Router Cache entries. (`updateTag` is the Next.js 16 client-side API for updating data inside a `'use cache'` scope — distinct from `revalidateTag`, which invalidates server-side Data Cache tags.)
 
 ```
 User request
@@ -80,7 +80,7 @@ import { ProjectsService } from '@/shared/api/generated'
 
 export async function listProjects(workspaceId: string) {
   'use cache'
-  cacheLife('minutes')   // regenerate every ~1 min, serve stale for 5 min
+  cacheLife('minutes')   // stale for 5 min, revalidate every 1 min
   cacheTag('projects')
   cacheTag(`workspace-${workspaceId}`)
   return ProjectsService.listProjects({ query: { workspaceId } })
@@ -289,7 +289,8 @@ This dual-invalidation ensures:
 - **Next.js docs — `cacheLife` API:** https://nextjs.org/docs/app/api-reference/functions/cacheLife — _authoritative; v16.2.4, 2026-04-10_
 - **Next.js docs — Caching without Cache Components (previous model / `fetch` + `unstable_cache`):** https://nextjs.org/docs/app/guides/caching-without-cache-components — _authoritative; v16.2.4_
 - **Next.js llms.txt:** https://nextjs.org/docs/llms.txt — _authoritative; version index confirming v16.2.4_
+- **vercel-labs/agent-skills — Next.js best practices:** https://github.com/vercel-labs/agent-skills — _community: Vercel-affiliated_
 
 ---
 
-_Last verified: 2026-05-04 (Next.js 16.2.4 / React 19)._
+Last verified: 2026-05-04 (Next.js 16.2.4 / React 19).
