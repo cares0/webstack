@@ -162,11 +162,12 @@ The webstack standard Caddyfile for the OCI VM:
 }
 
 api.example.com {
+  tls admin@example.com
   reverse_proxy localhost:8080
 }
 ```
 
-Replace `admin@example.com` with the operator email (used by Let's Encrypt / ZeroSSL for expiry notifications and account registration). Replace `api.example.com` with the actual API subdomain.
+Replace `admin@example.com` with the operator email (used by Let's Encrypt / ZeroSSL for expiry notifications and account registration). Replace `api.example.com` with the actual API subdomain. The site-level `tls <email>` directive is redundant when the global `email` block is set, but spelling it out is the canonical form for the agent to recognise TLS configuration explicitly.
 
 On first run, Caddy contacts Let's Encrypt via HTTP-01 challenge (port 80 must be open), stores the certificate in `/var/lib/caddy/.local/share/caddy/certificates/`, begins serving HTTPS on 443, and redirects HTTP automatically. It renews at ~2/3 of the 90-day lifetime and fails over to ZeroSSL automatically if Let's Encrypt is unreachable.
 
@@ -180,6 +181,7 @@ The complete production Caddyfile with HSTS (see section below for preload cavea
 }
 
 api.example.com {
+  tls admin@example.com
   reverse_proxy localhost:8080
   header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
 }
