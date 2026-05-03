@@ -111,6 +111,7 @@ Deploy version N+1 alongside version N. Version N+1 **reads and writes** `tax_am
 Version N+1's JPA entity adds:
 
 ```kotlin
+// in: <module>/infrastructure/persistence/<aggregate>/<Aggregate>JpaEntity.kt — JPA mapping, NOT a domain entity
 @Column(name = "tax_amount_cents")
 var taxAmountCents: Long? = null,
 ```
@@ -142,6 +143,7 @@ ALTER TABLE billing_invoice
 Update the Kotlin entity to reflect the enforced nullability:
 
 ```kotlin
+// in: <module>/infrastructure/persistence/<aggregate>/<Aggregate>JpaEntity.kt — JPA mapping, NOT a domain entity
 @Column(name = "tax_amount_cents", nullable = false)
 var taxAmountCents: Long = 0,
 ```
@@ -208,7 +210,7 @@ ON CONFLICT (invoice_id) DO NOTHING;
 
 For tens of millions of rows, options:
 
-1. **`spring.flyway.mixed=true`** — allows non-transactional statements in a single script. Use carefully; partial failure leaves an intermediate state.
+1. **`spring.flyway.mixed=true`** — allows mixing DDL and DML statements in the same migration script. Use carefully; partial failure leaves an intermediate state.
 2. **Kotlin `JavaMigration`** with `isTransactional() = false` — full control over commit cadence.
 3. **Separate offline script** — run the backfill manually before the enforcement migration, then the V script asserts `WHERE column IS NULL; -- should be zero rows`.
 
@@ -350,11 +352,11 @@ Adding `NOT NULL` before every row has a value triggers a full table scan and lo
 
 ## Sources
 
-- Flyway official docs — migration concepts, naming conventions, configuration reference: https://documentation.red-gate.com/flyway/ _authoritative_
-- Spring Boot — how-to database initialisation (Flyway auto-configuration, `spring.flyway.*` properties): https://docs.spring.io/spring-boot/how-to/data-initialization.html _authoritative_
-- Testcontainers guide — working with jOOQ, Flyway, and Testcontainers (PR dry-run pattern, `@ServiceConnection`): https://testcontainers.com/guides/working-with-jooq-flyway-using-testcontainers/ _community: Testcontainers team_
-- Flyway Context7 llms.txt — naming conventions, Spring Boot YAML config, CLI usage: https://context7.com/flyway/flyway/llms.txt _authoritative_
-- Postgres 16 docs — `ALTER TABLE` lock behaviour, `NOT VALID` constraint validation: https://www.postgresql.org/docs/16/sql-altertable.html _authoritative_
-- Brandur Leach, "Evolutionary Database Design" (expand-contract primer): https://brandur.org/pg-column-default _community: Brandur Leach_
+- **Flyway official docs:** https://documentation.red-gate.com/flyway/ — _authoritative_
+- **Spring Boot — how-to database initialisation:** https://docs.spring.io/spring-boot/how-to/data-initialization.html — _authoritative_
+- **Testcontainers guide — working with jOOQ, Flyway, and Testcontainers:** https://testcontainers.com/guides/working-with-jooq-flyway-using-testcontainers/ — _community: Testcontainers team_
+- **Flyway Context7 llms.txt:** https://context7.com/flyway/flyway/llms.txt — _authoritative_
+- **Postgres 16 docs — `ALTER TABLE`:** https://www.postgresql.org/docs/16/sql-altertable.html — _authoritative_
+- **Brandur Leach, "A Missing Link in Postgres 11: Fast Column Creation with Defaults":** https://brandur.org/postgres-default — _community: Brandur Leach_
 
 Last verified: 2026-05-04 (Flyway 10.X / Spring Boot 3.4.X / Postgres 16.X).
