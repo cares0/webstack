@@ -218,7 +218,7 @@ export function useCreateTask() {
 
 The three-hook triple is required: `onMutate` snapshots and patches; `onError` rolls back; `onSettled` invalidates to converge with server truth. Mark optimistic entries with `_optimistic: true` so the UI can dim unconfirmed items.
 
-**Idempotency keys.** For mutations that must not apply twice (charges, emails, state transitions), include `idempotencyKey: crypto.randomUUID()` in the request body. The backend deduplicates on the key. Reference: `docs/backend/idempotency.md` (pending).
+**Idempotency keys.** For mutations that must not apply twice (charges, emails, state transitions), include `idempotencyKey: crypto.randomUUID()` in the request body. The backend deduplicates on the key. Reference: backend idempotency patterns (covered in `docs/backend/api-versioning.md` and `docs/cross-cutting/rest-api-design.md` — both arriving in Phase C).
 
 **Simple case.** When only one component needs the optimistic value, skip cache manipulation and read from `variables` on the pending mutation: `const display = isPending ? [...items, { ...variables, _optimistic: true }] : items`.
 

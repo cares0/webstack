@@ -202,6 +202,8 @@ webstack uses FSD-lite (see `docs/frontend/fsd-architecture.md`); RHF + Zod plac
 
 ## Sources
 
+For complex form patterns (multi-step, file upload, optimistic UI, Server Action ↔ RHF), see `docs/frontend/form-patterns.md`.
+
 - React Hook Form: https://react-hook-form.com/docs
 - Zod: https://zod.dev
 - Zod v4 release notes: https://zod.dev/v4
