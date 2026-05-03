@@ -226,6 +226,7 @@ import { http, HttpResponse } from 'msw';
 
 const mockUser: UserDto = { id: '1', name: 'Alice', email: 'alice@example.com', role: 'MEMBER' };
 export const userHandlers = [http.get('/api/users/:id', () => HttpResponse.json(mockUser))];
+```
 
 ### Runtime overrides
 
@@ -323,7 +324,7 @@ const results = await axe(container, {
 
 Every suppression must include a ticket number so it is periodically reviewed.
 
-## Visual regression
+## Visual regression (Tier 2, opt-in)
 
 Playwright's `toHaveScreenshot()` captures pixel-level baselines and catches layout shifts, colour regressions, and text truncation that functional assertions miss.
 
@@ -364,16 +365,12 @@ Use visual regression for high-stability, high-value surfaces: design system com
 
 ## Sources
 
-- **Playwright documentation** — _authoritative_ — https://playwright.dev/docs/intro and https://playwright.dev/docs/getting-started-mcp. Official Playwright 1.x API reference, `playwright.config.ts` options, and MCP integration guide.
+- **Playwright documentation:** https://playwright.dev/docs/intro — _authoritative_
+- **Playwright MCP integration guide:** https://playwright.dev/docs/getting-started-mcp — _authoritative_
+- **Mock Service Worker documentation:** https://mswjs.io/docs — _authoritative_
+- **axe-core rule descriptions:** https://github.com/dequelabs/axe-core/blob/develop/doc/rule-descriptions.md — _authoritative_
+- **Vitest documentation:** https://vitest.dev/guide/ — _authoritative_
+- **@axe-core/playwright:** https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright — _authoritative_
+- **Testing Library guiding principles:** https://testing-library.com/docs/guiding-principles — _community: Kent C. Dodds_
 
-- **Mock Service Worker documentation** — _authoritative_ — https://mswjs.io/docs. MSW 2.x handler API (`http.*`, `HttpResponse`), `setupServer` / `setupWorker`, and the 1.x-to-2.x migration guide.
-
-- **axe-core rule descriptions** — _authoritative_ — https://github.com/dequelabs/axe-core/blob/develop/doc/rule-descriptions.md. Canonical list of axe-core rules, WCAG level mappings, impact ratings, and default-enabled status.
-
-- **Vitest documentation** — _authoritative_ — https://vitest.dev/guide/. Vitest 3.x configuration, jsdom environment, watch mode, and RTL integration.
-
-- **@axe-core/playwright** — _authoritative_ — https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright. Integration package for running axe audits inside Playwright test fixtures.
-
-- **Testing Library guiding principles** — _community: Kent C. Dodds_ — https://testing-library.com/docs/guiding-principles. The "query by accessible role, not implementation detail" principle and rationale for behaviour-focused assertions.
-
-Last verified: 2026-05-04 (Playwright 1.X / Vitest 3.X / MSW 2.X / @axe-core/playwright X.X).
+Last verified: 2026-05-04 (Playwright 1.X / Vitest 3.X / MSW 2.X / @axe-core/playwright 4.X).
