@@ -6,135 +6,88 @@
 
 ## What is FE auth in webstack
 
-webstack implements authentication end-to-end across two paired documents. The backend side — JWT issuance, BCrypt password hashing, `SecurityFilterChain`, Spring Security 6 filter registration — lives in [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md). This document covers the frontend half: how the browser stores tokens, how token refresh works, how routes are protected, and how Server Actions verify sessions.
+webstack implements authentication end-to-end across two paired documents. The backend side — JWT issuance, BCrypt hashing, `SecurityFilterChain`, Spring Security 6 filter registration — lives in [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md). This document covers the frontend half: token storage, silent refresh, route protection, and Server Action session verification.
 
-The pairing is intentional. The backend emits cookies via `Set-Cookie` response headers; the frontend never touches raw JWTs in JavaScript. The two docs must be read together when standing up auth from scratch.
+The pairing is intentional. The backend emits cookies via `Set-Cookie`; the frontend never touches raw JWTs in JavaScript. Read both docs together when standing up auth from scratch.
 
-webstack does not bundle Auth0, Clerk, Supabase Auth, or any external IdP. The project owns its identity flow. If you later migrate to an external IdP, replace the cookie-setting endpoints and update the refresh logic described here — the route guard and Server Action patterns remain the same.
+webstack does not bundle Auth0, Clerk, or any external IdP. The project owns its identity flow. If you migrate to an external IdP later, replace the cookie-setting endpoints and update the refresh logic here — the route guard and Server Action patterns remain the same.
 
 ## Why httpOnly cookie over localStorage
 
-XSS (cross-site scripting) is the primary threat vector for token theft. A script injected through any content — third-party dependencies, user-generated content, a compromised CDN asset — can call `localStorage.getItem('access_token')` and exfiltrate the value to an attacker-controlled endpoint. There is no browser-level mitigation for this: once JavaScript can run on your page, localStorage is readable.
+XSS is the primary threat vector for token theft. A script injected through any content — third-party dependencies, user-generated content, a compromised CDN asset — can call `localStorage.getItem('access_token')` and exfiltrate it. There is no browser mitigation: once JavaScript runs on your page, localStorage is fully readable.
 
-`httpOnly` cookies are invisible to JavaScript. `document.cookie` does not return them. `fetch` in user-land code cannot read them. The browser attaches them to outgoing same-origin (and SameSite-permitted cross-origin) requests automatically. An XSS payload cannot extract the token value; it can only trigger requests that carry the cookie, which is a much narrower attack surface.
+`httpOnly` cookies are invisible to JavaScript. `document.cookie` does not return them; `fetch` cannot read them. An XSS payload cannot extract the token value — it can only trigger requests that carry the cookie, which is a much narrower attack surface and does not expose the credential itself.
 
-OWASP recommends that session tokens be stored in `httpOnly` cookies set with `Secure` and `SameSite` attributes as the baseline (OWASP Session Management Cheat Sheet). localStorage is explicitly called out as inappropriate for sensitive session data.
+OWASP recommends session tokens be stored in `httpOnly` cookies with `Secure` and `SameSite` attributes as the baseline (OWASP Session Management Cheat Sheet). localStorage is explicitly called out as inappropriate for sensitive session data.
 
 Secondary considerations:
 
 - Cookies survive tab close and page refresh without JavaScript coordination.
-- The `__Host-` prefix locks a cookie to the exact origin (no subdomain leakage).
-- `SameSite=Lax` blocks cross-site POST forgery while permitting top-level GET navigation, which is the correct default for most webstack projects.
+- The `__Host-` / `__Secure-` prefixes pin cookies to the exact origin and prevent subdomain leakage.
+- `SameSite=Lax` blocks cross-site POST forgery while permitting top-level GET navigation.
 
 ## webstack convention
 
-The convention matches the pattern documented in [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md):
+Convention matches [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md):
 
-- **Access token** — short-lived (15 min), stored in an httpOnly cookie named `__Host-access_token`. Sent automatically by the browser on same-origin requests. Also held in React in-memory state (`Zustand` or `Jotai`) as a decoded payload (user id, roles) for UI decisions — the raw token is never exposed.
-- **Refresh token** — longer-lived (14 days), stored in an httpOnly cookie named `__Host-refresh_token` scoped to `/api/auth/refresh` only. Never readable by JavaScript. Sent automatically only when the browser hits that path.
-- The Spring Security backend sets both cookies in `POST /api/auth/login` and `POST /api/auth/refresh` responses. The frontend does not construct `Set-Cookie` headers.
-- The Next.js frontend (App Router) runs on Node.js; cookie verification in Server Actions uses the `cookies()` API from `next/headers`, not a client-side call.
+- **Access token** — 15-min JWT, httpOnly cookie `__Host-access_token`, `Path=/`. Sent automatically on same-origin requests. Decoded payload (userId, roles) also held in a Zustand/Jotai store for UI decisions — the raw token is never exposed to JS.
+- **Refresh token** — 14-day JWT, httpOnly cookie `__Secure-refresh_token`, `Path=/api/auth/refresh`. Never readable by JS; sent automatically only to that path.
+- Spring Security sets both cookies in `POST /api/auth/login` and `POST /api/auth/refresh`. The frontend never constructs `Set-Cookie` headers.
+- Cookie verification in Server Actions uses `cookies()` from `next/headers` — server-only, never client-side.
 
-The auth feature slice follows FSD-lite layout at `src/features/auth/`.
+The auth feature slice lives at `src/features/auth/` (FSD-lite: `ui/`, `model/`, `api/`, `index.ts`).
 
 ## Token storage
 
-Spring Security sets both tokens as response cookies. The cookie attributes that must be present:
+Spring Security sets both tokens as response cookies with these attributes:
 
 ```
 Set-Cookie: __Host-access_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
-Set-Cookie: __Host-refresh_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/refresh; Max-Age=1209600
+Set-Cookie: __Secure-refresh_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/refresh; Max-Age=1209600
 ```
 
-Attribute breakdown:
+| Attribute | Reason |
+|---|---|
+| `HttpOnly` | Blocks JS read; prevents XSS token theft |
+| `Secure` | HTTPS-only transmission |
+| `SameSite=Lax` | Blocks cross-site POST; permits top-level GET |
+| `Path=/api/auth/refresh` | Refresh token travels only to the refresh endpoint |
+| `Max-Age` | Browser expires cookie aligned with JWT TTL |
+| `__Host-` / `__Secure-` | Enforces `Secure`, pins origin, strips `Domain` |
 
-| Attribute | Value | Reason |
-|---|---|---|
-| `HttpOnly` | — | Blocks JS access; prevents XSS token theft |
-| `Secure` | — | HTTPS-only transmission |
-| `SameSite` | `Lax` | Blocks cross-site POST; permits top-level GET navigation |
-| `Path` | `/` (access) or `/api/auth/refresh` (refresh) | Refresh token sent only to refresh endpoint |
-| `Max-Age` | 900 / 1209600 | Matches JWT TTL; browser expires cookie automatically |
-| `__Host-` prefix | — | Enforces `Secure`, strips `Domain`, pins to exact origin |
+`__Host-` requires `Path=/`, so it applies only to the access token. The refresh token uses `__Secure-` (narrower path is allowed). Both prefixes are supported in all modern browsers.
 
-The `__Host-` prefix is supported in all modern browsers. It requires `Secure` and `Path=/` — the refresh token deviates from `Path=/` (it uses `/api/auth/refresh`) so the full `__Host-` prefix applies only to the access token. Use `__Secure-refresh_token` for the refresh cookie if the narrower path is needed.
-
-On the frontend, only the decoded payload is held in memory for UI logic:
-
-```ts
-// src/features/auth/model/store.ts
-import { create } from 'zustand'
-
-interface AuthState {
-  userId: string | null
-  roles: string[]
-  setAuth: (userId: string, roles: string[]) => void
-  clearAuth: () => void
-}
-
-export const useAuthStore = create<AuthState>((set) => ({
-  userId: null,
-  roles: [],
-  setAuth: (userId, roles) => set({ userId, roles }),
-  clearAuth: () => set({ userId: null, roles: [] }),
-}))
-```
-
-The store is populated after login by parsing the JWT payload from the response body (not from the cookie). The raw token string is discarded after the store is updated.
+On the frontend, hold only the decoded payload in an in-memory Zustand store (`src/features/auth/model/store.ts`). Populate it after login from the response body (not from the cookie); discard the raw token string immediately. Zustand state resets on page reload — the silent refresh mechanism restores it automatically.
 
 ## Refresh rotation
 
-The backend rotates the refresh token on each use: every call to `POST /api/auth/refresh` invalidates the old refresh token and issues a new pair. This limits the damage window if a refresh token is somehow obtained.
-
-The frontend must handle 401 responses by silently refreshing and retrying. The critical constraint: if multiple concurrent requests receive a 401 simultaneously, only one refresh call should be made; the others queue up and replay when the refresh resolves.
+The backend rotates the refresh token on every use: `POST /api/auth/refresh` invalidates the old pair and issues a new one. The frontend must silently handle 401 responses and deduplicate concurrent refresh calls so only one refresh fires while others queue.
 
 ```ts
 // src/features/auth/api/client.ts
 let refreshPromise: Promise<void> | null = null
-
-const pendingQueue: Array<{
-  resolve: () => void
-  reject: (err: unknown) => void
-}> = []
+const pending: Array<{ resolve: () => void; reject: (e: unknown) => void }> = []
 
 async function runRefresh(): Promise<void> {
-  const res = await fetch('/api/auth/refresh', {
-    method: 'POST',
-    credentials: 'include',
-  })
+  const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
   if (!res.ok) {
-    // Refresh failed — redirect to login
-    pendingQueue.forEach(({ reject }) => reject(new Error('session expired')))
-    pendingQueue.length = 0
+    pending.forEach(({ reject }) => reject(new Error('session expired')))
+    pending.length = 0
     window.location.replace('/login')
     throw new Error('refresh failed')
   }
-  pendingQueue.forEach(({ resolve }) => resolve())
-  pendingQueue.length = 0
+  pending.forEach(({ resolve }) => resolve())
+  pending.length = 0
 }
 
-function enqueueAfterRefresh(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    pendingQueue.push({ resolve, reject })
-  })
-}
-
-export async function apiFetch(
-  input: RequestInfo,
-  init?: RequestInit,
-): Promise<Response> {
+export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
   const res = await fetch(input, { ...init, credentials: 'include' })
-
   if (res.status !== 401) return res
 
-  // Deduplicate: only one refresh in-flight at a time
   if (!refreshPromise) {
-    refreshPromise = runRefresh().finally(() => {
-      refreshPromise = null
-    })
+    refreshPromise = runRefresh().finally(() => { refreshPromise = null })
   } else {
-    // Another request is already refreshing — wait for it
-    await enqueueAfterRefresh()
+    await new Promise<void>((resolve, reject) => pending.push({ resolve, reject }))
     return fetch(input, { ...init, credentials: 'include' })
   }
 
@@ -143,100 +96,62 @@ export async function apiFetch(
 }
 ```
 
-Exponential backoff on refresh failure is unnecessary in the cookie model — if `POST /api/auth/refresh` returns 401, the refresh token is invalid or expired. Retrying will not help. Redirect immediately to `/login`.
+If `POST /api/auth/refresh` returns 401, the session is gone — retrying will not help. Redirect immediately. Exponential backoff does not apply in the cookie model.
 
-The generated SDK in `src/shared/api/generated/` should delegate all HTTP calls through `apiFetch`. During codegen (`pnpm gen:api`), configure the custom fetch in the generator config so the wrapper is used project-wide.
+Wire the generated SDK (`src/shared/api/generated/`) to delegate through `apiFetch` so the wrapper covers the entire project during codegen (`pnpm gen:api`).
 
 ## Route guard (proxy)
 
-In Next.js 16, `middleware.ts` is renamed to `proxy.ts`. The route guard lives here. It runs before every route render and redirects unauthenticated visitors to `/login`.
+In Next.js 16, `middleware.ts` is renamed to `proxy.ts` and the exported function renamed from `middleware` to `proxy`. The route guard lives here and redirects unauthenticated visitors to `/login`, preserving the original destination in a `returnTo` query param.
 
 ```ts
-// proxy.ts  (project root, same level as app/ and src/)
+// proxy.ts  (project root)
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify, type JWTPayload } from 'jose'
+import { jwtVerify } from 'jose'
 
-const PUBLIC_PATHS = new Set(['/login', '/register', '/forgot-password'])
-
-const PROTECTED_MATCHER =
-  /^\/(dashboard|settings|profile|admin)(\/.*)?$/
-
+const PUBLIC = new Set(['/login', '/register', '/forgot-password'])
+const PROTECTED = /^\/(dashboard|settings|profile|admin)(\/.*)?$/
 const secretKey = new TextEncoder().encode(process.env.JWT_PUBLIC_KEY ?? '')
-
-async function verifyAccessToken(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secretKey, {
-      algorithms: ['HS256'],
-    })
-    return payload
-  } catch {
-    return null
-  }
-}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+  if (PUBLIC.has(pathname) || !PROTECTED.test(pathname)) return NextResponse.next()
 
-  // Public paths — always allow
-  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next()
+  const token = request.cookies.get('__Host-access_token')?.value
+  const returnTo = encodeURIComponent(pathname + request.nextUrl.search)
 
-  // Only guard matched protected paths
-  if (!PROTECTED_MATCHER.test(pathname)) return NextResponse.next()
+  if (!token) return NextResponse.redirect(new URL(`/login?returnTo=${returnTo}`, request.url))
 
-  const accessToken = request.cookies.get('__Host-access_token')?.value
-
-  if (!accessToken) {
-    const returnTo = encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search)
-    return NextResponse.redirect(
-      new URL(`/login?returnTo=${returnTo}`, request.url),
-    )
+  try {
+    await jwtVerify(token, secretKey, { algorithms: ['HS256'] })
+    return NextResponse.next()
+  } catch {
+    const res = NextResponse.redirect(new URL(`/login?returnTo=${returnTo}`, request.url))
+    res.cookies.delete('__Host-access_token')
+    return res
   }
-
-  const payload = await verifyAccessToken(accessToken)
-
-  if (!payload) {
-    // Token present but invalid or expired — clear it and redirect
-    const response = NextResponse.redirect(
-      new URL(`/login?returnTo=${encodeURIComponent(pathname)}`, request.url),
-    )
-    response.cookies.delete('__Host-access_token')
-    return response
-  }
-
-  return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon\\.ico|sitemap\\.xml|robots\\.txt).*)'],
 }
 ```
 
-After successful login, redirect the user back to the `returnTo` URL:
+After login, redirect to `returnTo`. Validate with `startsWith('/')` to prevent open redirect:
 
 ```ts
-// src/features/auth/api/mutations.ts
-'use server'
-
-import { redirect } from 'next/navigation'
-
-export async function loginAction(formData: FormData) {
-  // ... call backend, which sets cookies via Set-Cookie
-  const returnTo = formData.get('returnTo')
-  const target = typeof returnTo === 'string' && returnTo.startsWith('/')
-    ? returnTo
-    : '/dashboard'
-  redirect(target)
-}
+// 'use server'
+const returnTo = formData.get('returnTo')
+const target = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/dashboard'
+redirect(target)
 ```
 
-Validate `returnTo` against an allow-list or check `startsWith('/')` to prevent open redirect attacks.
+Migrate existing files with: `npx @next/codemod@canary middleware-to-proxy .`
 
 ## Server Action session check
 
-Server Actions run on the server but have no automatic session context. Read the cookie explicitly using `cookies()` from `next/headers`, then verify the JWT. This is the canonical pattern for protecting any `'use server'` action.
+Server Actions have no automatic session context. Read the cookie explicitly, then verify the JWT. Wrap in React's `cache()` so the crypto call runs once per render pass even if multiple components call `getSession()`.
 
 ```ts
 // src/shared/lib/auth.ts
@@ -249,20 +164,15 @@ import { cache } from 'react'
 const secretKey = new TextEncoder().encode(process.env.JWT_PUBLIC_KEY ?? '')
 
 export interface SessionPayload extends JWTPayload {
-  sub: string    // userId
+  sub: string      // userId
   roles: string[]
 }
 
 export const getSession = cache(async (): Promise<SessionPayload> => {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('__Host-access_token')?.value
-
+  const token = (await cookies()).get('__Host-access_token')?.value
   if (!token) redirect('/login')
-
   try {
-    const { payload } = await jwtVerify(token, secretKey, {
-      algorithms: ['HS256'],
-    })
+    const { payload } = await jwtVerify(token, secretKey, { algorithms: ['HS256'] })
     return payload as SessionPayload
   } catch {
     redirect('/login')
@@ -270,130 +180,62 @@ export const getSession = cache(async (): Promise<SessionPayload> => {
 })
 ```
 
-Use `getSession()` at the top of any protected Server Action or Server Component. React's `cache()` deduplicates the JWT verification within a single render pass — the crypto operation runs once even if multiple components call `getSession()`.
+Usage in any protected Server Action or Server Component:
 
 ```ts
-// src/features/settings/api/mutations.ts
-'use server'
-
+// 'use server'
 import { getSession } from '@/shared/lib/auth'
 
 export async function updateProfileAction(formData: FormData) {
-  const session = await getSession()  // redirects to /login if invalid
-
-  const name = formData.get('name')
-  // session.sub is the verified userId
-  await updateUser(session.sub, { name: String(name) })
+  const session = await getSession()   // redirects to /login if token invalid
+  await updateUser(session.sub, { name: String(formData.get('name')) })
 }
 ```
 
-For role-based checks, inspect `session.roles` after `getSession()` returns:
-
-```ts
-const session = await getSession()
-if (!session.roles.includes('admin')) {
-  throw new Error('Forbidden')
-}
-```
+For role gating, check `session.roles.includes('admin')` after `getSession()` returns and throw or return early.
 
 ## Logout
 
-Logout must clear both cookies, reset client-side state, and invalidate any cached data. Three places to hit in order:
+Three places to clear in order: cookies (server), TanStack Query cache, Sentry user context (see [`frontend/error-monitoring.md`](error-monitoring.md)).
 
-1. **Server Action** — clear cookies via `Max-Age=0`
-2. **TanStack Query** — call `queryClient.clear()` to remove all cached data
-3. **Sentry** — call `setUser(null)` to stop associating errors with the previous user (see [`frontend/error-monitoring.md`](error-monitoring.md))
+Server Action expires both cookies with `Max-Age=0`:
 
 ```ts
-// src/features/auth/api/mutations.ts
-'use server'
-
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-
+// 'use server'
 export async function logoutAction() {
-  const cookieStore = await cookies()
-
-  // Clear access token
-  cookieStore.set('__Host-access_token', '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 0,
-  })
-
-  // Clear refresh token
-  cookieStore.set('__Secure-refresh_token', '', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/api/auth/refresh',
-    maxAge: 0,
-  })
-
+  const jar = await cookies()
+  jar.set('__Host-access_token', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
+  jar.set('__Secure-refresh_token', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/api/auth/refresh', maxAge: 0 })
   redirect('/login')
 }
 ```
 
-Client-side cleanup in the logout button component:
+Client-side `LogoutButton` (`'use client'`) runs cleanup before the Server Action:
 
-```tsx
-// src/features/auth/ui/LogoutButton.tsx
-'use client'
-
-import { useQueryClient } from '@tanstack/react-query'
-import * as Sentry from '@/shared/lib/sentry'
-import { useAuthStore } from '@/features/auth/model/store'
-import { logoutAction } from '@/features/auth/api/mutations'
-import { useTransition } from 'react'
-
-export function LogoutButton() {
-  const queryClient = useQueryClient()
-  const clearAuth = useAuthStore((s) => s.clearAuth)
-  const [isPending, startTransition] = useTransition()
-
-  function handleLogout() {
-    startTransition(async () => {
-      // 1. Clear TanStack Query cache
-      queryClient.clear()
-
-      // 2. Clear Sentry user context
-      Sentry.setUser(null)
-
-      // 3. Clear in-memory auth store
-      clearAuth()
-
-      // 4. Clear cookies + redirect (server action)
-      await logoutAction()
-    })
-  }
-
-  return (
-    <button onClick={handleLogout} disabled={isPending}>
-      {isPending ? 'Signing out…' : 'Sign out'}
-    </button>
-  )
-}
+```ts
+queryClient.clear()     // 1. purge TanStack Query cache
+Sentry.setUser(null)    // 2. unlink errors from this user
+clearAuth()             // 3. clear Zustand store
+await logoutAction()    // 4. expire cookies + redirect
 ```
 
-Also call the Spring Security logout endpoint (`POST /api/auth/logout`) if the backend maintains a refresh token revocation list (recommended for high-security applications). This invalidates the refresh token server-side before the cookie expires naturally.
+If the backend maintains a refresh token revocation list, also call `POST /api/auth/logout` inside `logoutAction()` to invalidate the token server-side before it naturally expires.
 
 ## Anti-patterns
 
-**Storing access tokens in localStorage or sessionStorage.** localStorage is readable by any JavaScript on the page, including third-party scripts and injected XSS payloads. sessionStorage survives only one tab and is equally readable. Use httpOnly cookies exclusively.
+**localStorage or sessionStorage for tokens.** Both are fully readable by any JavaScript on the page, including third-party scripts and XSS payloads. Use httpOnly cookies exclusively.
 
-**Exposing the refresh endpoint path in client-side code.** The refresh token cookie is scoped to `/api/auth/refresh`. If you move the path or expose a public refresh endpoint that accepts a token from a request body or URL param, you break the scope isolation that prevents the token from leaking.
+**Exposing a refresh path or token in client-visible code.** The `__Secure-refresh_token` is scoped to `/api/auth/refresh`. An alternative refresh endpoint that accepts a token from the request body or URL param breaks the scope isolation that prevents leakage.
 
-**No CSRF protection on cookie-based flows.** `SameSite=Lax` mitigates most CSRF for POST mutations (cross-site POSTs are blocked). However, if you ever enable `SameSite=None` (for cross-origin embeds), add a CSRF double-submit cookie or the `Synchronizer Token Pattern`. Never disable `SameSite` without a compensating control.
+**`SameSite=None` without a CSRF compensating control.** `SameSite=Lax` blocks cross-site POST. If `SameSite=None` is needed for cross-origin embeds, add a CSRF double-submit cookie or Synchronizer Token Pattern.
 
-**Verifying the JWT on the client.** The proxy verifies the access token cryptographically via `jwtVerify`. This is correct. Never use `atob()` on the cookie value in client code to extract claims — cookies are httpOnly and `atob()` only decodes; it does not verify the signature.
+**Client-side JWT decoding.** The proxy verifies the access token cryptographically. Never use `atob()` on a cookie value in client code — the cookie is httpOnly (unreadable from JS anyway) and `atob()` only decodes; it does not verify the signature.
 
-**Infinite refresh loop.** If the access token cookie is malformed and the proxy always rejects it, redirecting to `/login` clears the cookie (see the proxy example above). Do not retry the refresh endpoint more than once — if it fails, redirect. Failing to break the loop causes a redirect storm that logs out the user by browser loop detection.
+**Infinite refresh loop.** The proxy deletes the invalid access token cookie on redirect to `/login`. Do not retry `POST /api/auth/refresh` more than once — a second failure means the session is gone. Redirect immediately or the browser's loop-detection will force a hard stop.
 
-**Storing the JWT signing secret in `NEXT_PUBLIC_` variables.** `NEXT_PUBLIC_` variables are inlined into the browser bundle. The signing secret or private key must remain server-only. Use `JWT_PUBLIC_KEY` (no `NEXT_PUBLIC_` prefix) for verification in Server Actions and the proxy; the browser never needs it.
+**`NEXT_PUBLIC_` prefix on the JWT key.** Variables with that prefix are inlined into the browser bundle. Keep `JWT_PUBLIC_KEY` server-only; the browser never needs to verify tokens.
 
-**Using `middleware.ts` instead of `proxy.ts` in Next.js 16.** The file convention was renamed in Next.js 16. A `middleware.ts` file will not be loaded; rename it to `proxy.ts` and rename the exported function from `middleware` to `proxy`. Run the provided codemod: `npx @next/codemod@canary middleware-to-proxy .`.
+**`middleware.ts` in a Next.js 16 project.** The file is silently ignored. Rename to `proxy.ts` and the export from `middleware` to `proxy`: `npx @next/codemod@canary middleware-to-proxy .`
 
 ## Sources
 
