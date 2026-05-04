@@ -181,6 +181,6 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that observabili
 - **Sentry Next.js manual setup:** https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/ — _authoritative_
 - **Grafana Cloud OTLP endpoint:** https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/ — _authoritative_
 - **Grafana OpenTelemetry Distribution for Java:** https://github.com/grafana/grafana-opentelemetry-java — _community: Grafana Labs_
-- **UptimeRobot pricing + monitor types:** https://uptimerobot.com/pricing/ — _authoritative_
+- **UptimeRobot documentation:** https://uptimerobot.com/help/ — _authoritative_
 
 Last verified: 2026-05-04 (Sentry SDK 8.X / Grafana Cloud Free / UptimeRobot Free / Spring Boot 3.4.X / Next.js 16.X).
