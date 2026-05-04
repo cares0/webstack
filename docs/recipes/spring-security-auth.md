@@ -1,6 +1,8 @@
 # Spring Security Auth Recipe (self-implemented, no external IdP)
 
 > Reference for any webstack project that opted in (`needs_auth=true`) during `/webstack:init`. Recommended path: implement authentication directly with Spring Security 6 — JWT for session, BCrypt for password hashing — and model it as a regular bounded context. webstack does **not** bundle Supabase Auth, Auth0, Clerk, or any external IdP. The project owns its identity flow.
+>
+> **Frontend side** — Token storage (httpOnly cookies), refresh rotation, route guard middleware, and Server Action session checks live in `docs/frontend/auth-frontend.md`. This recipe is BE only.
 
 This recipe is a checklist + code patterns, not a tutorial. If you have never used Spring Security, also read the official docs (linked at the bottom) before applying.
 
