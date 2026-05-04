@@ -249,7 +249,7 @@ pnpm add -D @next/bundle-analyzer
 import withBundleAnalyzer from '@next/bundle-analyzer'
 import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = { cacheComponents: true }
+const nextConfig: NextConfig = { cacheComponents: true }  // enable 'use cache' directives (see caching-strategies.md)
 
 export default withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' })(nextConfig)
 ```
@@ -350,7 +350,5 @@ export default function DashboardPage() {
 - **Next.js docs — Font Module (v16.2.4):** https://nextjs.org/docs/app/api-reference/components/font — _authoritative; next/font/google, next/font/local, display:swap, adjustFontFallback_
 - **Vercel Speed Insights:** https://vercel.com/docs/speed-insights — _authoritative; RUM collection, Hobby tier availability, dashboard metrics_
 - **GoogleChrome/web-vitals library:** https://github.com/GoogleChrome/web-vitals — _community: Google Chrome team; onLCP, onINP, onCLS API, sendBeacon reporting pattern_
-
----
 
 Last verified: 2026-05-04 (Next.js 16.2.4 / React 19 / Vercel Speed Insights / Web Vitals).
