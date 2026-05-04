@@ -29,15 +29,15 @@ A **nonce** is a cryptographically random single-use token minted server-side pe
 
 ## webstack convention — middleware CSP nonce
 
-webstack uses Next.js 16's `proxy.ts` (the renamed `middleware.ts`) to generate a per-request nonce, write it to the `Content-Security-Policy` response header, and forward it via a custom `x-nonce` request header so Server Components can read it.
+webstack uses `middleware.ts` to generate a per-request nonce, write it to the `Content-Security-Policy` response header, and forward it via a custom `x-nonce` request header so Server Components can read it.
 
-### `proxy.ts` — generate and inject
+### `middleware.ts` — generate and inject
 
 ```ts
-// proxy.ts  (project root)
+// middleware.ts  (project root)
 import { NextRequest, NextResponse } from 'next/server'
 
-export function proxy(request: NextRequest): NextResponse {
+export function middleware(request: NextRequest): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const isDev = process.env.NODE_ENV === 'development'
 
@@ -194,7 +194,7 @@ export default nextConfig
 
 ### Combining with the nonce pattern
 
-`next-safe` writes headers statically — it cannot generate per-request nonces. Delegate CSP to `proxy.ts`; keep the rest in `next-safe`:
+`next-safe` writes headers statically — it cannot generate per-request nonces. Delegate CSP to `middleware.ts`; keep the rest in `next-safe`:
 
 ```ts
 headers: nextSafe({ isDev, contentSecurityPolicy: false }),
@@ -380,4 +380,4 @@ Session token theft via XSS leads to authentication failure — the attacker ass
 
 ---
 
-Last verified: 2026-05-04 (Next.js 16.X / React 19 / DOMPurify 3.X / next-safe X.X).
+Last verified: 2026-05-04 (Next.js 16.X / React 19 / DOMPurify 3.X / next-safe (latest)).
