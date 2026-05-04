@@ -237,6 +237,47 @@ webstack does not bundle an authentication provider. If you answered **Yes** to 
 
 If you answered **No** to the auth prompt during init, this section does not apply — the project starts and stays without Spring Security on the classpath. You can switch later by adding `spring-boot-starter-security` to `build.gradle.kts` and following the same recipe.
 
+<!-- BEGIN observability — copy if optional_integrations.observability=true -->
+
+## Observability setup
+
+See `docs/recipes/observability-setup.md` for the full walkthrough.
+
+Required actions for this project:
+
+1. Sign up for Sentry → copy DSN.
+2. Sign up for Grafana Cloud Free → copy OTLP endpoint URL + token.
+3. Sign up for UptimeRobot → register monitor URL.
+4. Add `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` to `.env`.
+
+<!-- END observability -->
+
+<!-- BEGIN i18n — copy if optional_integrations.i18n=true -->
+
+## i18n setup
+
+See `docs/recipes/i18n-setup.md`. No external signup required — only library install + `[locale]` segment scaffolding.
+
+<!-- END i18n -->
+
+<!-- BEGIN renovate — copy if optional_integrations.renovate=true -->
+
+## Renovate setup
+
+See `docs/recipes/renovate-setup.md`.
+
+Required action: install the Renovate GitHub App on all 3 repos (`<project>-frontend`, `<project>-backend`, `<project>-infrastructure`).
+
+<!-- END renovate -->
+
+<!-- BEGIN release_management — copy if optional_integrations.release_management=true -->
+
+## Release management setup
+
+See `docs/recipes/release-management-setup.md`. Recommended to activate after first production deploy, not at init time.
+
+<!-- END release_management -->
+
 ## Sources
 
 - Vercel environment variables: https://vercel.com/docs/projects/environment-variables

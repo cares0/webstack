@@ -214,6 +214,58 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
 
 Checkpoint: "Backend repo created. Proceed to infrastructure?"
 
+## Phase 5.5: Optional integrations
+
+Use `AskUserQuestion` for 4 questions. Save each response to `<project_root>/.webstack/manifest.yaml` under `optional_integrations`. SETUP.md conditional sections (defined in `docs/infrastructure/setup-guide.md`) are activated/deactivated based on these flags.
+
+### Q1 — Observability (Sentry + Grafana Cloud + UptimeRobot)
+
+> "Activate observability stack? Backend gets OTel agent + Micrometer + Logback JSON encoder dependencies. Frontend gets Sentry SDK + Error Boundary. SETUP.md gets the signup walkthrough. Small projects can skip and enable later via `recipes/observability-setup.md`."
+
+- **Yes** → BE `build.gradle.kts` adds OTel + Micrometer + Logback encoder, FE adds `@sentry/nextjs`, SETUP.md gets `## Observability setup` section, manifest `observability: true`.
+- **No** → no changes. Reference docs remain in `docs/`.
+- default: **No**.
+
+### Q2 — Internationalization (next-intl)
+
+> "Multi-language support? Adds next-intl + middleware + `[locale]` segment + `messages/` directory."
+
+- **Yes** → next-intl dependency + middleware + `[locale]` scaffold, manifest `i18n: true`.
+- **No** → no changes.
+- default: **No**.
+
+### Q3 — Automated dependency upgrades (Renovate)
+
+> "Install Renovate? Strongly recommended. 3-repo `renovate.json` written; user installs the GitHub App per recipes/renovate-setup.md."
+
+- **Yes** → 3 repos get `renovate.json`, SETUP.md gets `## Renovate setup` section pointing to the recipe, manifest `renovate: true`.
+- **No** → no changes.
+- default: **Yes** (strongly recommended).
+
+### Q4 — Release management (git-cliff + Vercel Rolling Releases)
+
+> "Activate release management now? Recommended after first production deploy."
+
+- **Yes** → git-cliff `cliff.toml` + GitHub release workflow + Vercel Rolling Releases setup notes, manifest `release_management: true`.
+- **No** → no changes. Activate later via `recipes/release-management-setup.md`.
+- default: **No**.
+
+### Manifest schema
+
+Append `optional_integrations` to `<project_root>/.webstack/manifest.yaml` (in addition to the existing `project.needs_auth` field set in Phase 5):
+
+```yaml
+optional_integrations:
+  observability: false        # Q1
+  i18n: false                 # Q2
+  renovate: true              # Q3 (default Yes)
+  release_management: false   # Q4
+```
+
+Existing webstack projects without this field default to all-`false` except `renovate: true`. SubAgents (`code-reviewer`, `feature-architect`, etc.) read this section per their "Project flags (read first)" sections.
+
+Checkpoint: "Optional integrations decided. Proceed to infrastructure repo?"
+
 ## Phase 6: Infrastructure repo + SETUP.md
 
 1. `gh repo create <project>-infrastructure --private --clone`. Clone.
