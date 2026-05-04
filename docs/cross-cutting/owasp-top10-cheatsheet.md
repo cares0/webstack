@@ -160,7 +160,7 @@ OCI security lists: allowlist rules only; no `0.0.0.0/0` except 443 inbound to L
 
 ---
 
-## A06 Vulnerable and Outdated Components
+## A06 Vulnerable & Outdated Components
 
 ### Threat
 
@@ -187,7 +187,7 @@ Trivy in CI on every build and nightly — CRITICAL CVEs block deployment. CodeQ
 
 ---
 
-## A07 Identification and Authentication Failures
+## A07 Identification & Authentication Failures
 
 ### Threat
 
@@ -216,7 +216,7 @@ Login form: same error for "user not found" and "wrong password" (prevents enume
 
 ---
 
-## A08 Software and Data Integrity Failures
+## A08 Software & Data Integrity Failures
 
 ### Threat
 
@@ -243,7 +243,7 @@ GitHub Actions pinned to full commit SHA (`uses: actions/checkout@<sha>`), not m
 
 ---
 
-## A09 Security Logging and Monitoring Failures
+## A09 Security Logging & Monitoring Failures
 
 ### Threat
 
