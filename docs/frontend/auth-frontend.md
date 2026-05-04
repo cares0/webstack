@@ -43,7 +43,7 @@ Spring Security sets both tokens as response cookies with these attributes:
 
 ```
 Set-Cookie: __Host-access_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
-Set-Cookie: __Secure-refresh_token=<jwt>; HttpOnly; Secure; SameSite=Lax; Path=/api/auth/refresh; Max-Age=1209600
+Set-Cookie: __Secure-refresh_token=<jwt>; HttpOnly; Secure; SameSite=Strict; Path=/api/auth/refresh; Max-Age=1209600
 ```
 
 | Attribute | Reason |
@@ -100,12 +100,12 @@ If `POST /api/auth/refresh` returns 401, the session is gone — retrying will n
 
 Wire the generated SDK (`src/shared/api/generated/`) to delegate through `apiFetch` so the wrapper covers the entire project during codegen (`pnpm gen:api`).
 
-## Route guard (proxy)
+## Route guard (middleware)
 
-In Next.js 16, `middleware.ts` is renamed to `proxy.ts` and the exported function renamed from `middleware` to `proxy`. The route guard lives here and redirects unauthenticated visitors to `/login`, preserving the original destination in a `returnTo` query param.
+The route guard lives in `middleware.ts` at the project root and redirects unauthenticated visitors to `/login`, preserving the original destination in a `returnTo` query param.
 
 ```ts
-// proxy.ts  (project root)
+// middleware.ts  (project root)
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
@@ -114,7 +114,7 @@ const PUBLIC = new Set(['/login', '/register', '/forgot-password'])
 const PROTECTED = /^\/(dashboard|settings|profile|admin)(\/.*)?$/
 const secretKey = new TextEncoder().encode(process.env.JWT_PUBLIC_KEY ?? '')
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (PUBLIC.has(pathname) || !PROTECTED.test(pathname)) return NextResponse.next()
 
@@ -141,13 +141,11 @@ export const config = {
 After login, redirect to `returnTo`. Validate with `startsWith('/')` to prevent open redirect:
 
 ```ts
-// 'use server'
+'use server'
 const returnTo = formData.get('returnTo')
 const target = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/dashboard'
 redirect(target)
 ```
-
-Migrate existing files with: `npx @next/codemod@canary middleware-to-proxy .`
 
 ## Server Action session check
 
@@ -183,7 +181,7 @@ export const getSession = cache(async (): Promise<SessionPayload> => {
 Usage in any protected Server Action or Server Component:
 
 ```ts
-// 'use server'
+'use server'
 import { getSession } from '@/shared/lib/auth'
 
 export async function updateProfileAction(formData: FormData) {
@@ -201,11 +199,11 @@ Three places to clear in order: cookies (server), TanStack Query cache, Sentry u
 Server Action expires both cookies with `Max-Age=0`:
 
 ```ts
-// 'use server'
+'use server'
 export async function logoutAction() {
   const jar = await cookies()
   jar.set('__Host-access_token', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
-  jar.set('__Secure-refresh_token', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/api/auth/refresh', maxAge: 0 })
+  jar.set('__Secure-refresh_token', '', { httpOnly: true, secure: true, sameSite: 'strict', path: '/api/auth/refresh', maxAge: 0 })
   redirect('/login')
 }
 ```
@@ -229,20 +227,18 @@ If the backend maintains a refresh token revocation list, also call `POST /api/a
 
 **`SameSite=None` without a CSRF compensating control.** `SameSite=Lax` blocks cross-site POST. If `SameSite=None` is needed for cross-origin embeds, add a CSRF double-submit cookie or Synchronizer Token Pattern.
 
-**Client-side JWT decoding.** The proxy verifies the access token cryptographically. Never use `atob()` on a cookie value in client code — the cookie is httpOnly (unreadable from JS anyway) and `atob()` only decodes; it does not verify the signature.
+**Client-side JWT decoding.** The middleware verifies the access token cryptographically. Never use `atob()` on a cookie value in client code — the cookie is httpOnly (unreadable from JS anyway) and `atob()` only decodes; it does not verify the signature.
 
-**Infinite refresh loop.** The proxy deletes the invalid access token cookie on redirect to `/login`. Do not retry `POST /api/auth/refresh` more than once — a second failure means the session is gone. Redirect immediately or the browser's loop-detection will force a hard stop.
+**Infinite refresh loop.** The middleware deletes the invalid access token cookie on redirect to `/login`. Do not retry `POST /api/auth/refresh` more than once — a second failure means the session is gone. Redirect immediately or the browser's loop-detection will force a hard stop.
 
 **`NEXT_PUBLIC_` prefix on the JWT key.** Variables with that prefix are inlined into the browser bundle. Keep `JWT_PUBLIC_KEY` server-only; the browser never needs to verify tokens.
-
-**`middleware.ts` in a Next.js 16 project.** The file is silently ignored. Rename to `proxy.ts` and the export from `middleware` to `proxy`: `npx @next/codemod@canary middleware-to-proxy .`
 
 ## Sources
 
 - **OWASP Authentication Cheat Sheet:** https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html — _community: OWASP_
 - **OWASP Session Management Cheat Sheet:** https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html — _community: OWASP_
 - **Next.js App Router authentication guide:** https://nextjs.org/docs/app/building-your-application/authentication — _authoritative_
-- **Next.js proxy.ts file convention (formerly middleware):** https://nextjs.org/docs/app/api-reference/file-conventions/middleware — _authoritative_
-- **Spring Security backend pairing:** `recipes/spring-security-auth.md` — _internal_
+- **Next.js middleware file convention:** https://nextjs.org/docs/app/api-reference/file-conventions/middleware — _authoritative_
+- **Spring Security backend pairing:** `recipes/spring-security-auth.md` — _community: webstack_
 
 Last verified: 2026-05-04 (Next.js 16.X / React 19 / Spring Security 6.X / OWASP).
