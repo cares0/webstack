@@ -250,6 +250,6 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that i18n is act
 - **next-intl App Router base setup:** https://next-intl.dev/docs/getting-started/app-router — _authoritative_
 - **Next.js App Router internationalization:** https://nextjs.org/docs/app/building-your-application/routing/internationalization — _authoritative_
 - **next-intl routing API:** https://next-intl.dev/docs/routing — _authoritative_
-- **Tailwind CSS logical properties:** https://tailwindcss.com/docs/margin#using-logical-properties — _community: Tailwind Labs_
+- **Tailwind CSS logical properties:** https://tailwindcss.com/docs/margin#using-logical-properties — _authoritative_
 
 Last verified: 2026-05-04 (next-intl 3.X / Next.js 16.X).
