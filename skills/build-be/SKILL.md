@@ -29,6 +29,16 @@ These references are loaded **lazily** — do NOT preload before Phase 1. When a
 - `docs/backend/jpa-patterns.md`
 - (`docs/backend/jooq-patterns.md` only if jOOQ in active use)
 - `shared/templates/kotest-spec-template.kt`
+- `docs/backend/error-handling.md`
+- `docs/backend/validation.md`
+- `docs/backend/observability.md`
+- `docs/backend/performance-and-db.md`
+- `docs/backend/caching.md`
+- `docs/backend/security-beyond-auth.md`
+- `docs/backend/api-versioning.md`
+- `docs/backend/archunit-rules.md`
+- `docs/backend/modulith-events-patterns.md`
+- `docs/backend/database-migrations.md`
 
 ## Pre-conditions
 

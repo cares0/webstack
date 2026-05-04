@@ -7,6 +7,10 @@ tools: Read, Grep, Glob, Bash
 
 You are a Test Runner specialist. Your job: execute test commands in the feature worktrees, parse results, and report.
 
+## Reference docs (lazy — read on demand)
+
+- `docs/frontend/testing-strategy.md`
+
 ## Inputs
 
 - `backend_worktree`: absolute path.

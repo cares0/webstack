@@ -17,6 +17,13 @@ These references are loaded **lazily** — do NOT preload at P0. When a phase be
 - `docs/infrastructure/oracle-cloud-setup.md`
 - `docs/infrastructure/supabase-setup.md`
 - `docs/infrastructure/setup-guide.md`
+- `docs/infrastructure/ci-cd.md`
+- `docs/infrastructure/observability-stack.md`
+- `docs/infrastructure/domain-and-tls.md`
+- `docs/infrastructure/network-security.md`
+- `docs/infrastructure/release-management.md`
+- `docs/infrastructure/backup-and-recovery.md`
+- `docs/infrastructure/free-tier-safety.md`
 
 ## Pre-flight (P0)
 

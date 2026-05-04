@@ -15,6 +15,9 @@ These references are loaded **lazily** — do NOT preload at P0. When a phase be
 - `docs/infrastructure/vercel-setup.md`
 - `docs/infrastructure/oracle-cloud-setup.md`
 - `shared/conventions/git-workflow.md`
+- `docs/infrastructure/release-management.md`
+- `docs/infrastructure/observability-stack.md`
+- `docs/infrastructure/backup-and-recovery.md`
 
 ## Pre-flight (P0)
 

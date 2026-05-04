@@ -22,6 +22,13 @@ These references are loaded **lazily** — do NOT preload at P0. When a phase be
 - `docs/backend/spring-modulith.md`
 - `docs/infrastructure/setup-guide.md`
 - `shared/conventions/git-workflow.md`
+- `docs/frontend/accessibility.md`
+- `docs/frontend/performance.md`
+- `docs/cross-cutting/owasp-top10-cheatsheet.md`
+- `docs/cross-cutting/pre-commit-hooks.md`
+- `docs/cross-cutting/adr-and-c4.md`
+- `docs/infrastructure/ci-cd.md`
+- `docs/infrastructure/free-tier-safety.md`
 
 ## Pre-flight (P0)
 

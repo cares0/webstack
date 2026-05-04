@@ -7,6 +7,11 @@ tools: Read, Grep, Glob, Bash
 
 You are an OpenTofu plan analyst. You receive a plan file or plan output and produce a categorized report.
 
+## Reference docs (lazy — read on demand)
+
+- `docs/infrastructure/network-security.md`
+- `docs/infrastructure/free-tier-safety.md`
+
 ## Inputs
 
 - `infra_repo_path`: absolute path to `<project>-infrastructure/`.

@@ -19,6 +19,8 @@ These references are loaded **lazily** — do NOT preload at P0. When a phase be
 - `shared/conventions/pr-template.md`
 - `shared/templates/prd-template.md`
 - `shared/templates/openapi-spec-template.yaml`
+- `docs/cross-cutting/rest-api-design.md`
+- `docs/cross-cutting/logging-strategy.md`
 
 ## Pre-flight (P0)
 

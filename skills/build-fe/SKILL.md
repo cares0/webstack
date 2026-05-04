@@ -26,6 +26,17 @@ These references are loaded **lazily** — do NOT preload before Phase 1. When a
 - `docs/frontend/tailwind-v4.md`
 - `docs/frontend/rhf-zod.md`
 - `docs/frontend/tanstack-query.md`
+- `docs/frontend/accessibility.md`
+- `docs/frontend/performance.md`
+- `docs/frontend/caching-strategies.md`
+- `docs/frontend/error-monitoring.md`
+- `docs/frontend/client-state.md`
+- `docs/frontend/frontend-security.md`
+- `docs/frontend/testing-strategy.md`
+- `docs/frontend/form-patterns.md`
+- `docs/frontend/typescript-best-practices.md`
+- `docs/frontend/i18n.md`
+- `docs/frontend/auth-frontend.md`
 
 ## Pre-conditions
 
