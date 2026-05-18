@@ -585,7 +585,7 @@ paths:
 
 ## Error format
 
-webstack uses **ProblemDetail** (RFC 9457, Spring 6 native) as the uniform error envelope for all HTTP error responses. Full detail — including the domain exception hierarchy, `@RestControllerAdvice` placement, `violations` extension, and `MessageSource` locale integration — is in `docs/backend/error-handling.md`.
+webstack uses **ProblemDetail** (RFC 9457, Spring 7 native) as the uniform error envelope for all HTTP error responses. Full detail — including the domain exception hierarchy, `@RestControllerAdvice` placement, `violations` extension, and `MessageSource` locale integration — is in `docs/backend/error-handling.md`.
 
 ### Minimum error response shape
 
@@ -869,4 +869,4 @@ Publishing an `ETag` header on `GET` responses implies to clients that condition
 - **Zalando RESTful API Guidelines:** https://opensource.zalando.com/restful-api-guidelines/ — _community: Zalando Engineering_
 - **RFC 8288 — Web Linking (IETF, October 2017):** https://datatracker.ietf.org/doc/html/rfc8288 — _authoritative_
 
-Last verified: 2026-05-04 (RFC 9110 / OpenAPI 3.1 / Spring Boot 3.4.X / springdoc 2.X).
+Last verified: 2026-05-04 (RFC 9110 / OpenAPI 3.1 / Spring Boot 4.0.X / springdoc 2.X).

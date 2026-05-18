@@ -7,7 +7,7 @@
 
 ## What is this document
 
-This cheat sheet maps each OWASP Top 10:2021 category to concrete defenses in the webstack stack: Next.js 16 (FE), Spring Boot 3 / Kotlin / Spring Modulith (BE), Postgres 16 (DB), OCI + Vercel (Infra). Use it as a security-auditor checklist during feature reviews — trace each external input and trust boundary against the five subsections of each relevant item.
+This cheat sheet maps each OWASP Top 10:2021 category to concrete defenses in the webstack stack: Next.js 16 (FE), Spring Boot 4 / Kotlin / Spring Modulith (BE), Postgres 16 (DB), OCI + Vercel (Infra). Use it as a security-auditor checklist during feature reviews — trace each external input and trust boundary against the five subsections of each relevant item.
 
 ---
 
@@ -147,7 +147,7 @@ Unnecessary features enabled (Actuator on public port), default credentials unch
 - Actuator: expose `health,info` only; bind to localhost or a separate management port.
 - `server.error.include-stacktrace=never`, `server.error.include-message=never` in production. `ProblemDetail` (RFC 9457) — no internal detail to caller.
 - CORS: explicit `allowedOrigins` in `CorsConfigurationSource`. `allowedOrigins = listOf("*")` + `allowCredentials = true` is rejected by browsers.
-- Spring Security 6: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection: 0` by default. Opt in to `Referrer-Policy`, `Permissions-Policy`, CSP via `HttpSecurity.headers {}`.
+- Spring Security 7: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection: 0` by default. Opt in to `Referrer-Policy`, `Permissions-Policy`, CSP via `HttpSecurity.headers {}`.
 
 ### Infra defense
 
@@ -327,4 +327,4 @@ OCI Security List: block egress to `169.254.0.0/16`. OCI IMDSv2: metadata reques
 - **Spring Security Method Security:** https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html — _authoritative: Spring_
 - **DOMPurify:** https://github.com/cure53/DOMPurify — _community: cure53_
 
-Last verified: 2026-05-04 (OWASP Top 10:2021 / Next.js 16.X / Spring Boot 3.4.X / Postgres 16.X).
+Last verified: 2026-05-04 (OWASP Top 10:2021 / Next.js 16.X / Spring Boot 4.0.X / Postgres 16.X).

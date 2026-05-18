@@ -241,7 +241,7 @@ class MigrationIntegrityTest {
 }
 ```
 
-`@ServiceConnection` (Spring Boot 3.1+) wires the container's JDBC URL into the Spring context. A migration syntax error or constraint violation fails the context load, which fails the test.
+`@ServiceConnection` (introduced in Spring Boot 3.1, standard in 4.0) wires the container's JDBC URL into the Spring context. A migration syntax error or constraint violation fails the context load, which fails the test.
 
 ### Production schema dump (brownfield adoption)
 
@@ -359,4 +359,4 @@ Adding `NOT NULL` before every row has a value triggers a full table scan and lo
 - **Postgres 16 docs — `ALTER TABLE`:** https://www.postgresql.org/docs/16/sql-altertable.html — _authoritative_
 - **Brandur Leach, "A Missing Link in Postgres 11: Fast Column Creation with Defaults":** https://brandur.org/postgres-default — _community: Brandur Leach_
 
-Last verified: 2026-05-04 (Flyway 10.X / Spring Boot 3.4.X / Postgres 16.X).
+Last verified: 2026-05-04 (Flyway 11.X / Spring Boot 4.0.X / Postgres 16.X).

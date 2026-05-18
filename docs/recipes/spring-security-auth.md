@@ -1,6 +1,6 @@
 # Spring Security Auth Recipe (self-implemented, no external IdP)
 
-> Reference for any webstack project that opted in (`needs_auth=true`) during `/webstack:init`. Recommended path: implement authentication directly with Spring Security 6 — JWT for session, BCrypt for password hashing — and model it as a regular bounded context. webstack does **not** bundle Supabase Auth, Auth0, Clerk, or any external IdP. The project owns its identity flow.
+> Reference for any webstack project that opted in (`needs_auth=true`) during `/webstack:init`. Recommended path: implement authentication directly with Spring Security 7 — JWT for session, BCrypt for password hashing — and model it as a regular bounded context. webstack does **not** bundle Supabase Auth, Auth0, Clerk, or any external IdP. The project owns its identity flow.
 >
 > **Frontend side** — Token storage (httpOnly cookies), refresh rotation, route guard middleware, and Server Action session checks live in `docs/frontend/auth-frontend.md`. This recipe is BE only.
 
@@ -12,7 +12,7 @@ This recipe is a checklist + code patterns, not a tutorial. If you have never us
 - You are about to add the first auth-bearing feature (typically `/webstack:feature auth` — registers a `User` aggregate, login/register use cases, JWT-issuing endpoints).
 - You explicitly chose self-implemented auth over an external IdP.
 
-If you want an external IdP instead (Auth0, Clerk, AWS Cognito, …), don't use this recipe — wire `spring-boot-starter-oauth2-resource-server` to that provider's JWKS URL, skip the password-hashing parts, and most of this document doesn't apply.
+If you want an external IdP instead (Auth0, Clerk, AWS Cognito, …), don't use this recipe — wire `spring-boot-starter-security-oauth2-resource-server` (renamed from `spring-boot-starter-oauth2-resource-server` in Spring Boot 4) to that provider's JWKS URL, skip the password-hashing parts, and most of this document doesn't apply.
 
 ## Architectural shape (DDD/Hexagonal/Modulith fit)
 
@@ -69,8 +69,9 @@ dependencies {
     // already present from init when needs_auth=true:
     implementation("org.springframework.boot:spring-boot-starter-security")
 
-    // add for JWT (Nimbus is Spring's default; comes via oauth2-resource-server):
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    // add for JWT (Nimbus is Spring's default; comes via the resource-server starter):
+    // Note: renamed from spring-boot-starter-oauth2-resource-server in Spring Boot 4.
+    implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
     // Nimbus JOSE for issuing tokens (decoder is provided by the starter above):
     implementation("com.nimbusds:nimbus-jose-jwt:9.40")
 
@@ -289,4 +290,4 @@ Infrastructure layer (KoTest + Spring slice + Testcontainers):
 - OWASP Authentication Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
 - OWASP JWT Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html
 
-Last verified: 2026-04-27.
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring Security 7.X / Nimbus JOSE 9.X / BCrypt).

@@ -29,7 +29,7 @@ Paired documents:
 
 **Free tier coverage is complete.** Grafana Cloud Free, Sentry Developer, and UptimeRobot Free each cover an early-stage webstack project with zero credit card requirement. All three tools scale to paid tiers with a single click when limits are reached.
 
-**OTel is the standard transport.** Spring Boot 3 + Micrometer + the OTel Java agent (or Grafana OTel Distribution) emit metrics, traces, and logs over OTLP — one protocol, one auth token, one endpoint. Switching backends later is an environment variable change, not a code rewrite.
+**OTel is the standard transport.** Spring Boot 4 + Micrometer + the OTel Java agent (or Grafana OTel Distribution) emit metrics, traces, and logs over OTLP — one protocol, one auth token, one endpoint. Switching backends later is an environment variable change, not a code rewrite.
 
 **Vercel-native analytics add zero overhead.** Vercel Web Analytics and Speed Insights are injected by the platform — no SDK bundle, no cookie consent, no extra deploy step.
 
@@ -104,7 +104,7 @@ All three estimates fall well within the 10k / 50 GB / 50 GB free limits. Sampli
 
 ## BE integration
 
-The Spring Boot 3 + Kotlin backend sends all three signals (metrics, traces, logs) over OTLP to Grafana Cloud using one of two paths:
+The Spring Boot 4 + Kotlin backend sends all three signals (metrics, traces, logs) over OTLP to Grafana Cloud using one of two paths:
 
 **Path A — Grafana OTel Distribution (recommended for Grafana Cloud):**
 

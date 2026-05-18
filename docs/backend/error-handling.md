@@ -1,11 +1,11 @@
 # Error handling (RFC 7807 ProblemDetail)
 
 > Reference for build-be SubAgent and backend-implementer.
-> Spring 6 ProblemDetail + global @RestControllerAdvice + domain exception → HTTP mapping for webstack's Spring Boot 3.4 + Kotlin stack.
+> Spring 7 ProblemDetail + global @RestControllerAdvice + domain exception → HTTP mapping for webstack's Spring Boot 4.0 + Kotlin stack.
 
 ## What is webstack error handling
 
-webstack uses **`ProblemDetail`** — Spring 6's first-class implementation of **RFC 9457** ("Problem Details for HTTP APIs", July 2023), which obsoletes RFC 7807 (2016). The two specifications are backward-compatible: Spring 6's `ProblemDetail` implements both, and clients that speak RFC 7807 continue to work without change.
+webstack uses **`ProblemDetail`** — Spring 7's first-class implementation of **RFC 9457** ("Problem Details for HTTP APIs", July 2023), which obsoletes RFC 7807 (2016). The two specifications are backward-compatible: Spring 7's `ProblemDetail` implements both, and clients that speak RFC 7807 continue to work without change.
 
 A problem detail response is a JSON document with a well-known media type and a fixed set of top-level fields. Inconsistent error shapes — `{"error": "not found"}` here, `{"message": "Order not found"}` there — collapse into a uniform, machine-readable envelope:
 
@@ -315,4 +315,4 @@ A single global handler must import every domain exception type, coupling all mo
 - **Spring Boot Reference — Spring MVC error handling:** https://docs.spring.io/spring-boot/reference/web/spring-mvc.html — _authoritative_
 - **Maciej Walkowiak, "Problem Details (RFC 7807) with Spring Boot 3":** https://maciejwalkowiak.com/blog/problem-details-spring-boot-3/ — _community: Maciej Walkowiak_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Spring 6.1.X / Kotlin 2.X / RFC 7807 + RFC 9457).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring 7.0.X / Kotlin 2.X / RFC 7807 + RFC 9457).

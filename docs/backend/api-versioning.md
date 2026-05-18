@@ -268,7 +268,7 @@ class OpenApiGroupConfig {
 
 ### Dependencies and properties
 
-Gradle (`springdoc-openapi 2.x` requires Spring Boot 3 + Java 17+):
+Gradle (`springdoc-openapi 2.x` requires Spring Boot 4 + Java 17+):
 
 ```kotlin
 implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3")
@@ -329,4 +329,4 @@ Versioning-specific drift:
 - **springdoc-openapi — GroupedOpenApi reference:** https://springdoc.org/ — _authoritative_
 - **Zalando RESTful API Guidelines — versioning, deprecation, sunset:** https://opensource.zalando.com/restful-api-guidelines/ — _community: Zalando Engineering_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / springdoc-openapi 2.X / OpenAPI 3.1 / RFC 9745 + RFC 8594).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / springdoc-openapi 2.X / OpenAPI 3.1 / RFC 9745 + RFC 8594).

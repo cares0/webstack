@@ -13,7 +13,7 @@ webstack manages three sibling git repositories:
 | Repo | Stack | Artifact |
 |---|---|---|
 | `*-frontend` | Next.js 16 + pnpm | Vercel deployment |
-| `*-backend` | Spring Boot 3 + Gradle | OCI Compute JAR |
+| `*-backend` | Spring Boot 4 + Gradle | OCI Compute JAR |
 | `*-infrastructure` | OpenTofu | State in OCI Object Storage |
 
 Each repo owns `.github/workflows/`. Shared reusable workflows use a `_*.yml` prefix (callable only). The infra repo also holds the `tofu plan` workflow invoked by `/webstack:infra`.
@@ -79,7 +79,7 @@ jobs:
 
 ### Backend CI (`*-backend/.github/workflows/ci.yml`)
 
-The matrix runs tests on Java 17 LTS and 21 LTS. A `test-summary` aggregation job is the single required check for branch protection, avoiding per-entry check names (`test (17)`, `test (21)`).
+The matrix runs tests on Java 17 LTS, 21 LTS, and 25 LTS (Spring Boot 4.0 baseline is 17; 25 is the latest LTS and the runtime recommended for new projects). A `test-summary` aggregation job is the single required check for branch protection, avoiding per-entry check names (`test (17)`, `test (21)`, `test (25)`).
 
 ```yaml
 name: BE CI
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [17, 21]
+        java: [17, 21, 25]
       fail-fast: false
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

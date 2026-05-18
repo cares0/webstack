@@ -15,7 +15,7 @@ Step-by-step activation guide — each step produces a concrete artefact (accoun
 
 ## Pre-conditions
 
-- `webstack init` complete; FE (Next.js 16.X) and BE (Spring Boot 3.4.X + Kotlin + Gradle) repos exist.
+- `webstack init` complete; FE (Next.js 16.X) and BE (Spring Boot 4.0.X + Kotlin + Gradle) repos exist.
 - Shell access to both repos; ability to set Vercel env vars and OCI VM systemd unit env.
 - `.webstack/manifest.yaml` present in the parent directory.
 
@@ -183,4 +183,4 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that observabili
 - **Grafana OpenTelemetry Distribution for Java:** https://github.com/grafana/grafana-opentelemetry-java — _community: Grafana Labs_
 - **UptimeRobot documentation:** https://uptimerobot.com/help/ — _authoritative_
 
-Last verified: 2026-05-04 (Sentry SDK 8.X / Grafana Cloud Free / UptimeRobot Free / Spring Boot 3.4.X / Next.js 16.X).
+Last verified: 2026-05-04 (Sentry SDK 8.X / Grafana Cloud Free / UptimeRobot Free / Spring Boot 4.0.X / Next.js 16.X).

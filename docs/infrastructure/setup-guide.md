@@ -231,7 +231,7 @@ For Oracle: also rotate the API signing key file pair (Step 2 commands) — the 
 
 webstack does not bundle an authentication provider. If you answered **Yes** to the auth prompt during `/webstack:init`, the Spring backend already has `spring-boot-starter-security` on the classpath with a permissive default `SecurityFilterChain`. To turn that into real authentication:
 
-1. Read `docs/recipes/spring-security-auth.md` (in the webstack plugin) for the recommended path: self-implemented Spring Security 6 with JWT (Nimbus) + BCrypt for password hashing, or OAuth2 social login.
+1. Read `docs/recipes/spring-security-auth.md` (in the webstack plugin) for the recommended path: self-implemented Spring Security 7 with JWT (Nimbus) + BCrypt for password hashing, or OAuth2 social login.
 2. Add an `auth` bounded context as a regular feature: `/webstack:feature auth`. The `feature-architect` SubAgent will scaffold a `User` aggregate, `LoginUseCase`, `RegisterUseCase`, etc.
 3. Tighten the `SecurityFilterChain` to require authentication on protected endpoints; expose `/api/auth/login`, `/api/auth/register` as the only `permitAll` paths.
 

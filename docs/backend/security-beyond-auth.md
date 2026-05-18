@@ -19,13 +19,13 @@ Controls are split into two tiers. **Tier 1** (Section 1) is always-on baseline;
 
 ## Section 1 — Baseline (Tier 1, always)
 
-No extra dependencies beyond `spring-boot-starter-security` and `spring-boot-starter-web`. Spring Security 6 enables a sensible header set automatically; CORS, mass assignment, and sanitization require DTO discipline and an optional encoder library.
+No extra dependencies beyond `spring-boot-starter-security` and `spring-boot-starter-webmvc`. Spring Security 7 enables a sensible header set automatically; CORS, mass assignment, and sanitization require DTO discipline and an optional encoder library.
 
 ---
 
 ## Security headers
 
-Spring Security 6 adds a conservative header set automatically:
+Spring Security 7 adds a conservative header set automatically:
 
 | Header | Default | Purpose |
 |--------|---------|---------|
@@ -310,4 +310,4 @@ In-memory buckets are per-instance. For horizontally scaled backends, add `com.b
 - **OWASP Java Encoder Project:** https://owasp.org/www-project-java-encoder/ — _community: OWASP_
 - **Bucket4j 8.x documentation (Vladimir Bukhtoyarov):** https://bucket4j.com/8.10.1/toc.html — _community: Vladimir Bukhtoyarov_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Spring Security 6.X / Bucket4j 8.X / Kotlin 2.X).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring Security 7.X / Bucket4j 8.X / Kotlin 2.X).

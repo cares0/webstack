@@ -239,7 +239,7 @@ class InvoiceJpaAdapterSpec(
 
 ## Integration testing with TestContainers
 
-For tests that need real Postgres semantics — JSONB columns, partial indexes, RLS policies, generated columns, dialect-sensitive queries — webstack's convention is **Spring Boot 3.1+ `@ServiceConnection`** over a Testcontainers `PostgreSQLContainer`. Flyway migrations apply against the container; the Spring app boots against the live DB; tests run; the container is torn down.
+For tests that need real Postgres semantics — JSONB columns, partial indexes, RLS policies, generated columns, dialect-sensitive queries — webstack's convention is **Spring Boot `@ServiceConnection`** (introduced in 3.1, standard since 4.0) over a Testcontainers `PostgreSQLContainer`. Flyway migrations apply against the container; the Spring app boots against the live DB; tests run; the container is torn down.
 
 ```kotlin
 import io.kotest.core.spec.style.BehaviorSpec

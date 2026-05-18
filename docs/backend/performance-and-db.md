@@ -5,11 +5,11 @@
 
 ## What is webstack performance
 
-Performance in webstack is the observable throughput and latency of a Spring Boot 3.4 + Kotlin application backed by Postgres 16 on a single OCI A1 instance (Ampere ARM, free tier):
+Performance in webstack is the observable throughput and latency of a Spring Boot 4.0 + Kotlin application backed by Postgres 16 on a single OCI A1 instance (Ampere ARM, free tier):
 
 - **No horizontal scale.** Every slow query competes directly with application threads.
 - **Supabase free tier.** ~60 direct connections / ~200 via pgBouncer. Extensions need `supabase_admin` — provision via the Supabase dashboard.
-- **JPA + Hibernate 6.x** is an infrastructure adapter (see `docs/backend/jpa-patterns.md`). Unintended lazy-load queries are the most common latency source.
+- **JPA + Hibernate 7.x** is an infrastructure adapter (see `docs/backend/jpa-patterns.md`). Unintended lazy-load queries are the most common latency source.
 - **HikariCP pool is finite.** Slow queries hold connections longer, reducing concurrency.
 
 Target budget: ≤ 5 DB queries per request (prefer 1–2), p99 < 200 ms, connection held < 100 ms.
@@ -395,4 +395,4 @@ Fix: `@BatchSize` on the second collection, or load each association in separate
 - **Vlad Mihalcea — N+1 Query Problem:** https://vladmihalcea.com/n-plus-1-query-problem/ — _community: Vlad Mihalcea, Hibernate committer_
 - **datasource-proxy-spring-boot-starter (p6spy / datasource-proxy):** https://github.com/gavlyukovskiy/spring-boot-data-source-decorator — _community: Gavlyukovskiy_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Hibernate 6.X / Postgres 16.X / Kotlin 2.X).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Hibernate 7.X / Postgres 16.X / Kotlin 2.X).

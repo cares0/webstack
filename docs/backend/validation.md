@@ -1,4 +1,4 @@
-# Validation (Bean Validation 3 + domain invariants)
+# Validation (Bean Validation 3.1 + domain invariants)
 
 > Reference for build-be SubAgent and backend-implementer.
 > Two-layer validation: jakarta-validation at HTTP boundary, invariants enforced in domain objects.
@@ -7,7 +7,7 @@
 
 webstack applies validation at two distinct layers:
 
-**Layer 1 — HTTP boundary (jakarta-validation 3).** Request DTOs carry `@NotNull`, `@NotBlank`, `@Email`, `@Size`, and similar constraints. Spring MVC triggers validation when a controller parameter carries `@Valid` or `@Validated`. A failed constraint throws `MethodArgumentNotValidException`, mapped to a structured `ProblemDetail` by `ValidationExceptionHandler` (see `docs/backend/error-handling.md`).
+**Layer 1 — HTTP boundary (jakarta-validation 3.1).** Request DTOs carry `@NotNull`, `@NotBlank`, `@Email`, `@Size`, and similar constraints. Spring MVC triggers validation when a controller parameter carries `@Valid` or `@Validated`. A failed constraint throws `MethodArgumentNotValidException`, mapped to a structured `ProblemDetail` by `ValidationExceptionHandler` (see `docs/backend/error-handling.md`).
 
 **Layer 2 — Domain invariants (pure Kotlin).** Aggregates, entities, and value objects enforce invariants in constructors, factory functions, and command methods via `require` and `check`. No jakarta annotation touches the domain layer. A domain object can never exist in an invalid state regardless of how it was created.
 
@@ -77,7 +77,7 @@ The front-end SDK exposes `violations` as an optional field on `ProblemDetail`, 
 
 ### Enabling Bean Validation
 
-Add `spring-boot-starter-validation` to `build.gradle.kts`; it includes Hibernate Validator 8.x and auto-configures `LocalValidatorFactoryBean`. No manual bean declaration needed.
+Add `spring-boot-starter-validation` to `build.gradle.kts`; it includes Hibernate Validator 9.x and auto-configures `LocalValidatorFactoryBean`. No manual bean declaration needed.
 
 ## Validation groups
 
@@ -313,10 +313,10 @@ A repository `save` method that checks `invoice.amountCents <= 0` fires only on 
 ## Sources
 
 - **Spring Framework — Bean Validation:** https://docs.spring.io/spring-framework/reference/core/validation/beanvalidation.html — _authoritative_
-- **Hibernate Validator 8.x Reference Guide:** https://docs.hibernate.org/validator/8.0/reference/en-US/html_single/ — _authoritative_
-- **Jakarta Bean Validation 3.0 Specification:** https://jakarta.ee/specifications/bean-validation/3.0/ — _authoritative_
+- **Hibernate Validator 9.x Reference Guide:** https://docs.hibernate.org/validator/9.0/reference/en-US/html_single/ — _authoritative_
+- **Jakarta Bean Validation 3.1 Specification:** https://jakarta.ee/specifications/bean-validation/3.1/ — _authoritative_
 - **Spring Framework — Validation error responses (ProblemDetail):** https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html — _authoritative_
 - **Konform — Kotlin validation library (GitHub):** https://github.com/konform-kt/konform — _authoritative_
 - **Maciej Walkowiak, "Bean Validation with Kotlin and Spring Boot":** https://maciejwalkowiak.com/blog/spring-boot-validation-kotlin/ — _community: Maciej Walkowiak_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Hibernate Validator 8.X / jakarta-validation 3.X / Kotlin 2.X).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Hibernate Validator 9.X / jakarta-validation 3.1.X / Kotlin 2.X).

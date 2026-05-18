@@ -6,7 +6,7 @@
 
 1. **Brand identity & persona interview** — distill what your service stands for and who it serves.
 2. **Design system extraction** — derive tokens, ShadCN theme, and component variants from identity + persona (Refactoring UI principles).
-3. **Multi-repo scaffolding** — create `<project>-frontend/` (Next.js + ShadCN + Tailwind v4), `<project>-backend/` (Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec), `<project>-infrastructure/` (OpenTofu).
+3. **Multi-repo scaffolding** — create `<project>-frontend/` (Next.js + ShadCN + Tailwind v4), `<project>-backend/` (Spring Boot 4 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec), `<project>-infrastructure/` (OpenTofu).
 4. **Parallel feature development** — git worktrees per feature, OpenAPI 3.1 contract-first, parallel BE/FE implementer SubAgents.
 5. **Free-tier deploy** — Vercel + Oracle Cloud Always Free + Supabase via OpenTofu IaC.
 
@@ -57,7 +57,7 @@ Per project, `.webstack/` (parent dir):
 Three sibling git repos (created by init):
 
 - `<project>-frontend/` — Next.js App Router + ShadCN + Tailwind v4 + RHF/Zod + TanStack Query.
-- `<project>-backend/` — Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec + Spring Modulith + Flyway.
+- `<project>-backend/` — Spring Boot 4 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec + Spring Modulith + Flyway.
 - `<project>-infrastructure/` — OpenTofu with vercel/vercel + oracle/oci + supabase/supabase providers.
 
 ## What's specialized (SubAgents)
@@ -83,7 +83,7 @@ Three sibling git repos (created by init):
 
 webstack does not bundle authentication. During `/webstack:init` Phase 5, the user is asked whether the project will need user authentication:
 
-- **Yes** → `spring-boot-starter-security` is added to the backend's classpath; `docs/recipes/spring-security-auth.md` is linked from the project's SETUP.md and walks through self-implemented JWT + BCrypt (or OAuth2 social login) using Spring Security 6 directly. Supabase Auth is **not** used.
+- **Yes** → `spring-boot-starter-security` is added to the backend's classpath; `docs/recipes/spring-security-auth.md` is linked from the project's SETUP.md and walks through self-implemented JWT + BCrypt (or OAuth2 social login) using Spring Security 7 directly. Supabase Auth is **not** used.
 - **No** → the backend ships without Spring Security. Add it later via a feature PR if/when authentication becomes a requirement.
 
 Supabase is used **strictly as managed Postgres** in webstack — Auth, Storage, Realtime, Edge Functions are out of scope. Swapping to AWS RDS / Neon / self-hosted Postgres later is a `<infra>/supabase.tf` + `DATABASE_URL` change, not a re-platform.
@@ -93,7 +93,7 @@ Supabase is used **strictly as managed Postgres** in webstack — Auth, Storage,
 | Layer | Stack |
 |---|---|
 | Frontend | Next.js 16+ App Router + React 19 + ShadCN + Tailwind v4 + RHF + Zod v4 + TanStack Query v5 + @hey-api/openapi-ts. **FSD-lite** layering (`src/{app, widgets, features, entities, shared}/`). |
-| Backend | Spring Boot 3 + Kotlin + DDD/Hexagonal + Spring Modulith 2.x (one module per bounded context) + KoTest BehaviorSpec 6.x + JPA + Flyway + springdoc-openapi + TestContainers (`@ServiceConnection`). Spring Security is **opt-in at init** for projects that need authentication — see `docs/recipes/spring-security-auth.md`. |
+| Backend | Spring Boot 4 + Kotlin + DDD/Hexagonal + Spring Modulith 2.x (one module per bounded context) + KoTest BehaviorSpec 6.x + JPA + Flyway + springdoc-openapi + TestContainers (`@ServiceConnection`). Spring Security is **opt-in at init** for projects that need authentication — see `docs/recipes/spring-security-auth.md`. |
 | Infra | Vercel (Hobby) + Oracle Cloud Always Free (Ampere A1 ARM) + Supabase (managed Postgres only — no Auth/Storage/Realtime/Edge) + **OpenTofu** 1.10+ |
 | Contract | OpenAPI 3.1 |
 

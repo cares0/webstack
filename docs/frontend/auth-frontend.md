@@ -6,7 +6,7 @@
 
 ## What is FE auth in webstack
 
-webstack implements authentication end-to-end across two paired documents. The backend side — JWT issuance, BCrypt hashing, `SecurityFilterChain`, Spring Security 6 filter registration — lives in [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md). This document covers the frontend half: token storage, silent refresh, route protection, and Server Action session verification.
+webstack implements authentication end-to-end across two paired documents. The backend side — JWT issuance, BCrypt hashing, `SecurityFilterChain`, Spring Security 7 filter registration — lives in [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md). This document covers the frontend half: token storage, silent refresh, route protection, and Server Action session verification.
 
 The pairing is intentional. The backend emits cookies via `Set-Cookie`; the frontend never touches raw JWTs in JavaScript. Read both docs together when standing up auth from scratch.
 
@@ -241,4 +241,4 @@ If the backend maintains a refresh token revocation list, also call `POST /api/a
 - **Next.js middleware file convention:** https://nextjs.org/docs/app/api-reference/file-conventions/middleware — _authoritative_
 - **Spring Security backend pairing:** `recipes/spring-security-auth.md` — _community: webstack_
 
-Last verified: 2026-05-04 (Next.js 16.X / React 19 / Spring Security 6.X / OWASP).
+Last verified: 2026-05-04 (Next.js 16.X / React 19 / Spring Security 7.X / OWASP).

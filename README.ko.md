@@ -6,7 +6,7 @@
 
 1. **브랜드 정체성 & 페르소나 인터뷰** — 서비스가 추구하는 가치와 대상 사용자를 정리합니다.
 2. **디자인 시스템 추출** — 정체성 + 페르소나에서 토큰, ShadCN 테마, 컴포넌트 변형을 도출합니다 (Refactoring UI 원칙).
-3. **멀티 레포 스캐폴딩** — `<project>-frontend/` (Next.js + ShadCN + Tailwind v4), `<project>-backend/` (Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec), `<project>-infrastructure/` (OpenTofu)를 생성합니다.
+3. **멀티 레포 스캐폴딩** — `<project>-frontend/` (Next.js + ShadCN + Tailwind v4), `<project>-backend/` (Spring Boot 4 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec), `<project>-infrastructure/` (OpenTofu)를 생성합니다.
 4. **병렬 피처 개발** — 피처마다 git 워크트리로 격리, OpenAPI 3.1 컨트랙트 우선, BE/FE Implementer SubAgent 병렬 실행.
 5. **무료 티어 배포** — Vercel + Oracle Cloud Always Free + Supabase + OpenTofu IaC.
 
@@ -57,7 +57,7 @@ cd <비어 있는 부모 디렉토리>
 3개의 형제 git 레포가 init에 의해 만들어집니다:
 
 - `<project>-frontend/` — Next.js App Router + ShadCN + Tailwind v4 + RHF/Zod + TanStack Query.
-- `<project>-backend/` — Spring Boot 3 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec + Spring Modulith + Flyway.
+- `<project>-backend/` — Spring Boot 4 + Kotlin + DDD/Hexagonal + KoTest BehaviorSpec + Spring Modulith + Flyway.
 - `<project>-infrastructure/` — OpenTofu + vercel/vercel + oracle/oci + supabase/supabase 프로바이더.
 
 ## 전문화된 SubAgent
@@ -83,7 +83,7 @@ cd <비어 있는 부모 디렉토리>
 
 webstack은 인증을 번들링하지 않습니다. `/webstack:init` Phase 5에서 사용자에게 묻습니다:
 
-- **Yes** → 백엔드 클래스패스에 `spring-boot-starter-security` 추가, `docs/recipes/spring-security-auth.md`가 SETUP.md에 링크됩니다 (Spring Security 6 + JWT/BCrypt 또는 OAuth2 직접 구현). Supabase Auth는 사용하지 않습니다.
+- **Yes** → 백엔드 클래스패스에 `spring-boot-starter-security` 추가, `docs/recipes/spring-security-auth.md`가 SETUP.md에 링크됩니다 (Spring Security 7 + JWT/BCrypt 또는 OAuth2 직접 구현). Supabase Auth는 사용하지 않습니다.
 - **No** → Spring Security 미포함. 나중에 인증이 필요하면 피처 PR로 추가합니다.
 
 webstack에서 Supabase는 **관리형 Postgres**로만 사용합니다 (Auth/Storage/Realtime/Edge Functions 미사용). AWS RDS / Neon / 자체 호스팅으로 옮길 때는 `<infra>/supabase.tf` + `DATABASE_URL`만 변경하면 됩니다.
@@ -93,7 +93,7 @@ webstack에서 Supabase는 **관리형 Postgres**로만 사용합니다 (Auth/St
 | 레이어 | 스택 |
 |---|---|
 | 프론트엔드 | Next.js 16+ App Router + React 19 + ShadCN + Tailwind v4 + RHF + Zod v4 + TanStack Query v5 + @hey-api/openapi-ts. **FSD-lite** 5계층 (`src/{app, widgets, features, entities, shared}/`). |
-| 백엔드 | Spring Boot 3 + Kotlin + DDD/Hexagonal + Spring Modulith 2.x + KoTest BehaviorSpec 6.x + JPA + Flyway + springdoc-openapi + TestContainers. Spring Security는 init 시 옵트인. |
+| 백엔드 | Spring Boot 4 + Kotlin + DDD/Hexagonal + Spring Modulith 2.x + KoTest BehaviorSpec 6.x + JPA + Flyway + springdoc-openapi + TestContainers. Spring Security는 init 시 옵트인. |
 | 인프라 | Vercel (Hobby) + Oracle Cloud Always Free (Ampere A1 ARM) + Supabase (관리형 Postgres) + **OpenTofu** 1.10+ |
 | 컨트랙트 | OpenAPI 3.1 |
 

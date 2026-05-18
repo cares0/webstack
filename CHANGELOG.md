@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Init Phase 5 question**: `/webstack:init` now asks during backend scaffolding whether the project will need user authentication. Answer is recorded as `project.needs_auth` in `manifest.yaml`.
   - **Yes** → `spring-boot-starter-security` is included in Spring Initializr deps; a permissive default `SecurityFilterChain` boots out-of-the-box; SETUP.md appends an "Authentication next steps" section pointing to the recipe below.
   - **No** → Spring Security is not on the classpath. The user can add it later via a feature PR.
-- **`docs/recipes/spring-security-auth.md`** — full self-implemented Spring Security 6 + JWT (Nimbus) + BCrypt recipe. Covers the `auth/` Modulith module shape (DDD aggregate / hexagonal layers), `TokenIssuer` / `TokenVerifier` / `PasswordHasher` ports, `SecurityFilterChain`, refresh-token rotation cookie strategy, frontend integration via the `src/features/auth/` slice, and a security checklist (lockout, rate limiting, CORS, HTTPS, etc.). webstack does not bundle an external IdP — the recipe is the documented path for projects that opt in.
+- **`docs/recipes/spring-security-auth.md`** — full self-implemented Spring Security 7 + JWT (Nimbus) + BCrypt recipe. Covers the `auth/` Modulith module shape (DDD aggregate / hexagonal layers), `TokenIssuer` / `TokenVerifier` / `PasswordHasher` ports, `SecurityFilterChain`, refresh-token rotation cookie strategy, frontend integration via the `src/features/auth/` slice, and a security checklist (lockout, rate limiting, CORS, HTTPS, etc.). webstack does not bundle an external IdP — the recipe is the documented path for projects that opt in.
 - `feature-architect` SubAgent now treats the `Auth:` field in its report as conditional: only filled when `needs_auth=true` AND the feature touches an authenticated endpoint. The first auth-bearing feature triggers a `CLARIFICATION NEEDED:` for strategy choice.
 - Test scenario `02-feature.md` switched from a `user-login` mock to a `note-create` (unauthenticated) feature so the scenario does not depend on the auth opt-in.
 
@@ -93,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tech Stack
 
-- Hardcoded for the initial release: NextJS + ShadCN + Tailwind v4 / Spring Boot 3 + Kotlin + KoTest BehaviorSpec + DDD/Hexagonal / Vercel + Oracle Cloud + Supabase + OpenTofu
+- Hardcoded for the initial release: NextJS + ShadCN + Tailwind v4 / Spring Boot 4 + Kotlin + KoTest BehaviorSpec + DDD/Hexagonal / Vercel + Oracle Cloud + Supabase + OpenTofu
 - Modularization: pluggable per `docs/<stack>/`
 
 ### Architecture

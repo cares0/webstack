@@ -168,7 +168,7 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
 
    ```bash
    # Look up the current default at https://start.spring.io and substitute below.
-   # As of 2026-04-27 the latest GA Spring Boot 3.x is in the 3.4.x line; verify before init.
+   # As of 2026-05-04 the latest GA Spring Boot 4.x is in the 4.0.x line (Java 17 baseline, Java 25 LTS recommended); verify before init.
    BOOT_VERSION="$(curl -s https://start.spring.io/metadata/client | python3 -c 'import json,sys; print(json.load(sys.stdin)["bootVersion"]["default"])')"
 
    # Base deps (always). Add 'security' conditionally below.
@@ -196,7 +196,7 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
    - Spring Modulith: `org.springframework.modulith:spring-modulith-starter-core` + `spring-modulith-starter-jpa` + `spring-modulith-events-jpa`.
    - springdoc-openapi-starter-webmvc-ui.
    - Postgres driver (`org.postgresql:postgresql`) and HikariCP (default).
-   - **If `needs_auth=true`**: do not add JWT libraries here — `docs/recipes/spring-security-auth.md` walks the user through choosing between `spring-boot-starter-oauth2-resource-server` (Nimbus, default for Spring) or `io.jsonwebtoken:jjwt-*` and applying the right `SecurityFilterChain`. Init only ensures `spring-boot-starter-security` is on the classpath via the Initializr dep added in Step 4.
+   - **If `needs_auth=true`**: do not add JWT libraries here — `docs/recipes/spring-security-auth.md` walks the user through choosing between `spring-boot-starter-security-oauth2-resource-server` (Nimbus, default for Spring; renamed from `spring-boot-starter-oauth2-resource-server` in Spring Boot 4) or `io.jsonwebtoken:jjwt-*` and applying the right `SecurityFilterChain`. Init only ensures `spring-boot-starter-security` is on the classpath via the Initializr dep added in Step 4.
 6. Create the Modulith + Hexagonal package skeleton. Modules (top-level packages) map 1:1 to bounded contexts; **hexagonal layers live inside each module**. At init time we don't know the BCs yet, so create only the application root + a `core/` placeholder module that the first feature will rename or split:
 
    ```

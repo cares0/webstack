@@ -14,7 +14,7 @@ Browser (Next.js / React)
   └─ Sentry SDK 8.X breadcrumbs + captureException
        └─ X-Request-Id header ──────────────────┐
                                                  ↓
-                                       BE (Spring Boot 3.4 / Kotlin)
+                                       BE (Spring Boot 4.0 / Kotlin)
                                          └─ RequestIdFilter → MDC
                                               └─ Logback JSON (LogstashEncoder 9.x)
                                                    └─ trace_id / span_id (OTel MDC bridge)

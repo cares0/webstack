@@ -46,7 +46,7 @@ Modulith creates this table via its bundled Flyway migration when `spring-moduli
 | `completion_date` | NULL = incomplete; set on success |
 | `status` | `PUBLISHED`, `PROCESSING`, `COMPLETED`, `FAILED`, `RESUBMITTED` (Modulith 2.0+) |
 
-### Build dependencies (Spring Boot 3.4)
+### Build dependencies (Spring Boot 4.0)
 
 ```kotlin
 // build.gradle.kts
@@ -410,4 +410,4 @@ The `serialized_event` column stores the event as JSON. Large payloads bloat the
 - **Chris Richardson — Transactional Outbox Pattern:** https://microservices.io/patterns/data/transactional-outbox.html — _community: microservices.io_
 - **Chris Richardson — Saga Pattern:** https://microservices.io/patterns/data/saga.html — _community: microservices.io_
 
-Last verified: 2026-05-04 (Spring Modulith 2.X / Spring Boot 3.4.X / Kotlin 2.X).
+Last verified: 2026-05-04 (Spring Modulith 2.X / Spring Boot 4.0.X / Kotlin 2.X).

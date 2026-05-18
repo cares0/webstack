@@ -15,7 +15,7 @@ Three annotations cover the full lifecycle:
 | `@CachePut` | Always | Updates cache with latest return value; useful for mutations that also need a refreshed read view |
 | `@CacheEvict` | Always (or before, if `beforeInvocation=true`) | Removes one entry or the entire cache region |
 
-Spring Boot 3.4 auto-configures `CaffeineCacheManager` when both libraries are on the classpath. Activate with `@EnableCaching` on a dedicated `@Configuration` class.
+Spring Boot 4.0 auto-configures `CaffeineCacheManager` when both libraries are on the classpath. Activate with `@EnableCaching` on a dedicated `@Configuration` class.
 
 ## Why Caffeine in-memory
 
@@ -336,4 +336,4 @@ Link to the broader board in `docs/backend/observability.md`.
 - **Caffeine GitHub — ben-manes/caffeine:** https://github.com/ben-manes/caffeine — _community: Ben Manes, Caffeine author_
 - **Caffeine Wiki — Population, Eviction, Statistics:** https://github.com/ben-manes/caffeine/wiki — _community: Ben Manes, Caffeine author_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Caffeine 3.X / Kotlin 2.X).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Caffeine 3.X / Kotlin 2.X).

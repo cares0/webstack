@@ -2,11 +2,11 @@
 
 > Reference for build-be SubAgent and backend-implementer.
 > ⚙️ **Optional integration** — activated via init's "Observability" question (`manifest.optional_integrations.observability=true`). Until activated, this document is reference-only; setup steps live in `recipes/observability-setup.md`.
-> Metrics, traces, and structured logs for Spring Boot 3.4 + Kotlin via Micrometer + OTel Java agent + Grafana OTel Distribution + Logback JSON.
+> Metrics, traces, and structured logs for Spring Boot 4.0 + Kotlin via Micrometer + OTel Java agent + Grafana OTel Distribution + Logback JSON.
 
 ## What is webstack BE observability
 
-webstack backend observability is the unified collection of **metrics**, **traces**, and **structured logs** from a Spring Boot 3.4 + Kotlin application. The three signals answer:
+webstack backend observability is the unified collection of **metrics**, **traces**, and **structured logs** from a Spring Boot 4.0 + Kotlin application. The three signals answer:
 
 - _Is the system healthy?_ — metrics (rate, error rate, latency)
 - _What happened in this specific request?_ — traces (span tree across services)
@@ -28,7 +28,7 @@ logstash-logback-encoder       ← JSON log encoding + MDC field output
 
 ## Why Micrometer + OTel + Logback JSON
 
-**Spring Boot 3 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction. HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 3.4 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
+**Spring Boot 4 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction, and Spring Boot 4.0 hardens it with the new `spring-boot-starter-opentelemetry`. HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 4.0 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
 
 **CNCF standard — vendor-neutral.** Switching from Grafana Cloud to Honeycomb or Datadog is an env var change, not a code change.
 
@@ -49,7 +49,7 @@ logstash-logback-encoder       ← JSON log encoding + MDC field output
 
 ### Annotation-based instrumentation
 
-Enable in `application.yml` and add `spring-boot-starter-aop`:
+Enable in `application.yml` and add `spring-boot-starter-aspectj` (renamed from `spring-boot-starter-aop` in Spring Boot 4):
 
 ```yaml
 management:
@@ -419,4 +419,4 @@ log.info("Invoice created", StructuredArguments.keyValue("invoiceId", invoice.id
 - **logstash-logback-encoder (logfellow):** https://github.com/logfellow/logstash-logback-encoder — _community: logfellow org_
 - **Spring Boot Reference — Observability:** https://docs.spring.io/spring-boot/reference/actuator/observability.html — _authoritative_
 
-Last verified: 2026-05-04 (Spring Boot 3.4.X / Micrometer 1.13.X / OpenTelemetry Java 2.X / Grafana OpenTelemetry Distribution 2.X / Logback 1.5.X).
+Last verified: 2026-05-04 (Spring Boot 4.0.X / Micrometer 1.16.X / OpenTelemetry Java 2.X / Grafana OpenTelemetry Distribution 2.X / Logback 1.5.X).

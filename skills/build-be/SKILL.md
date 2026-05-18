@@ -1,6 +1,6 @@
 ---
 name: build-be
-description: Internal sub-skill — implementation guide for backend code from an OpenAPI 3.1 contract using DDD/Hexagonal Architecture with Spring Boot 3 + Kotlin + KoTest BehaviorSpec. Invoked by the backend-implementer SubAgent only; not a user-facing slash command.
+description: Internal sub-skill — implementation guide for backend code from an OpenAPI 3.1 contract using DDD/Hexagonal Architecture with Spring Boot 4 + Kotlin + KoTest BehaviorSpec. Invoked by the backend-implementer SubAgent only; not a user-facing slash command.
 disable-model-invocation: true
 ---
 
