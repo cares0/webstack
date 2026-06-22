@@ -40,3 +40,6 @@ yarn-debug.log*
 
 # Internal dev artifacts (superpowers plans/specs — not shipped with the plugin)
 docs/superpowers/
+
+# Maintainer-only publish guide — kept locally, never committed (per its own header)
+/PUBLISH.md
