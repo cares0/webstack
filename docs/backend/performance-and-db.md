@@ -41,12 +41,12 @@ spring:
 
 Logs a summary at session close. `collections loaded` ≫ `entities loaded` = N+1. Add `logging.level.org.hibernate.stat=DEBUG` for per-session counts.
 
-### p6spy — dev-only SQL proxy
+### datasource-decorator (p6spy mode) — dev-only SQL proxy
 
-Logs every statement with interpolated parameter values (unlike `show_sql`, which logs `?`):
+The `datasource-decorator` starter in **p6spy mode** logs every statement with interpolated parameter values (unlike `show_sql`, which logs `?`):
 
 ```kotlin
-runtimeOnly("com.github.gavlyukovskiy:datasource-proxy-spring-boot-starter:1.10.0")
+runtimeOnly("com.github.gavlyukovskiy:datasource-decorator-spring-boot-starter:1.10.0")
 ```
 
 ```yaml
@@ -113,7 +113,7 @@ interface InvoiceJpaRepository : JpaRepository<InvoiceJpaEntity, UUID> {
 fun findAllWithLineItemsByCustomer(@Param("customerId") customerId: UUID): List<InvoiceJpaEntity>
 ```
 
-`DISTINCT` prevents duplicate parent rows. With pagination, `JOIN FETCH` forces an in-memory count — prefer `@BatchSize` or DTO projections.
+`DISTINCT` prevents duplicate parent rows. With pagination, `JOIN FETCH` on a collection makes Hibernate apply the `LIMIT`/offset in memory after fetching all matching rows (logged as `HHH000104`) — prefer `@BatchSize` or DTO projections.
 
 ### Resolution 3 — `@BatchSize`
 
@@ -389,10 +389,10 @@ Fix: `@BatchSize` on the second collection, or load each association in separate
 ## Sources
 
 - **Spring Data JPA Reference:** https://docs.spring.io/spring-data/jpa/reference/ — _authoritative_
-- **Hibernate ORM 6.6 User Guide — Fetching:** https://docs.hibernate.org/orm/6.6/userguide/html_single/Hibernate_User_Guide.html — _authoritative_
+- **Hibernate ORM 7.x User Guide — Fetching:** https://docs.hibernate.org/orm/current/userguide/html_single/Hibernate_User_Guide.html — _authoritative_
 - **PostgreSQL 16 — Using EXPLAIN:** https://www.postgresql.org/docs/16/using-explain.html — _authoritative_
 - **PostgreSQL 16 — Indexes:** https://www.postgresql.org/docs/16/indexes.html — _authoritative_
 - **Vlad Mihalcea — N+1 Query Problem:** https://vladmihalcea.com/n-plus-1-query-problem/ — _community: Vlad Mihalcea, Hibernate committer_
-- **datasource-proxy-spring-boot-starter (p6spy / datasource-proxy):** https://github.com/gavlyukovskiy/spring-boot-data-source-decorator — _community: Gavlyukovskiy_
+- **datasource-decorator (spring-boot-data-source-decorator; p6spy / datasource-proxy modes):** https://github.com/gavlyukovskiy/spring-boot-data-source-decorator — _community: Gavlyukovskiy_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Hibernate 7.X / Postgres 16.X / Kotlin 2.X).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Hibernate 7.X / Postgres 16.X / Kotlin 2.X).

@@ -126,7 +126,7 @@ Map each DTO to a command in the application layer; never pass a DTO into the do
 Add `@JsonIgnoreProperties(ignoreUnknown = true)` to every request DTO as an explicit contract signal (Spring Boot silently ignores unknown fields by default; the annotation protects against configuration drift). Admin-only fields must live behind a separate `@PreAuthorize`-gated controller:
 
 ```kotlin
-@RestController @RequestMapping("/api/admin/invoices")
+@RestController @RequestMapping("/api/v1/admin/invoices")
 @PreAuthorize("hasRole('ADMIN')")
 class AdminInvoiceController(private val adminUpdateInvoice: AdminUpdateInvoiceUseCase) {
     @PatchMapping("/{id}")
@@ -165,7 +165,7 @@ The library is zero-dependency; the same input needs different escaping dependin
 
 ### Custom `@NoHtmlContent` validator (`@SafeHtml` replacement)
 
-`@SafeHtml` was removed in Hibernate Validator 7. Replace with a custom `ConstraintValidator`:
+`@SafeHtml` has been removed since Hibernate Validator 7 (webstack is on 9.x, so it is unavailable). Replace with a custom `ConstraintValidator`:
 
 ```kotlin
 @Target(AnnotationTarget.FIELD) @Retention(AnnotationRetention.RUNTIME)
@@ -187,7 +187,7 @@ For rich-text fields where markup is intentional, use an allowlist parser (OWASP
 
 ## OWASP Top 10 mapping (BE)
 
-The OWASP Top 10:2021 provides the threat model. The table below maps each category to the webstack control that addresses it. Cross-reference with `cross-cutting/owasp-top10-cheatsheet.md` (arriving in Phase C) for the full cheatsheet.
+The OWASP Top 10:2021 provides the threat model. The table below maps each category to the webstack control that addresses it. Cross-reference with `cross-cutting/owasp-top10-cheatsheet.md` for the full cheatsheet.
 
 | Code | Category | webstack mitigation |
 |------|----------|-------------------|
@@ -228,7 +228,10 @@ Use a `HandlerInterceptor` to short-circuit with a `ProblemDetail` 429 before th
 
 ```kotlin
 @Component
-class RateLimitInterceptor(private val rateLimitService: RateLimitService) : HandlerInterceptor {
+class RateLimitInterceptor(
+    private val rateLimitService: RateLimitService,
+    private val objectMapper: ObjectMapper,   // inject the Spring-managed bean (Kotlin module + config applied)
+) : HandlerInterceptor {
 
     override fun preHandle(req: HttpServletRequest, res: HttpServletResponse, h: Any): Boolean {
         val probe = rateLimitService.tryConsume(resolveKey(req))
@@ -238,7 +241,7 @@ class RateLimitInterceptor(private val rateLimitService: RateLimitService) : Han
         val retryAfter = TimeUnit.NANOSECONDS.toSeconds(probe.nanosToWaitForRefill)
         res.status = 429; res.contentType = "application/problem+json"
         res.setHeader("X-RateLimit-Retry-After", retryAfter.toString())
-        ObjectMapper().writeValue(res.writer,
+        objectMapper.writeValue(res.writer,
             ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS).apply {
                 type   = URI.create("https://api.example.com/errors/RATE_LIMIT_EXCEEDED")
                 title  = "Too many requests"
@@ -272,7 +275,7 @@ Register in `WebMvcConfigurer.addInterceptors`: `.addPathPatterns("/api/**").exc
 
 ### Per-user quota and login brute-force protection
 
-`resolveKey` switches from IP to user ID for authenticated requests automatically. For login endpoints add a dedicated `LoginRateLimitService` with a tighter bucket (5 attempts / 5 minutes per IP — matching `recipes/spring-security-auth.md`) and register it on `/api/auth/login` only in `WebMvcConfig`:
+`resolveKey` switches from IP to user ID for authenticated requests automatically. For login endpoints add a dedicated `LoginRateLimitService` with a tighter bucket (5 attempts / 5 minutes per IP — matching `recipes/spring-security-auth.md`) and register it on `/api/v1/auth/login` only in `WebMvcConfig`:
 
 ```kotlin
 private fun buildLoginBucket(): Bucket = Bucket.builder()
@@ -298,7 +301,7 @@ In-memory buckets are per-instance. For horizontally scaled backends, add `com.b
 
 **5. No rate limit on a public mutation endpoint.** A contact form, password-reset request, or registration endpoint with no throttle lets an attacker flood the mail server or enumerate accounts at zero cost. Apply Tier 2 rate limiting to every public mutation.
 
-**6. Using `request.remoteAddr` for the rate-limit key behind a proxy.** Behind nginx, Vercel, or the Oracle Load Balancer, `remoteAddr` is the proxy's IP — all callers share one bucket. Read the first non-private IP from `X-Forwarded-For`, and restrict which headers your infrastructure forwards to prevent spoofing.
+**6. Using `request.remoteAddr` for the rate-limit key behind a proxy.** Behind Caddy (or nginx/Vercel), `remoteAddr` is the proxy's IP — all callers share one bucket. Read the first non-private IP from `X-Forwarded-For`, and restrict which headers your infrastructure forwards to prevent spoofing.
 
 ---
 
@@ -310,4 +313,4 @@ In-memory buckets are per-instance. For horizontally scaled backends, add `com.b
 - **OWASP Java Encoder Project:** https://owasp.org/www-project-java-encoder/ — _community: OWASP_
 - **Bucket4j 8.x documentation (Vladimir Bukhtoyarov):** https://bucket4j.com/8.10.1/toc.html — _community: Vladimir Bukhtoyarov_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring Security 7.X / Bucket4j 8.X / Kotlin 2.X).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Spring Security 7.X / Bucket4j 8.X / Kotlin 2.X).

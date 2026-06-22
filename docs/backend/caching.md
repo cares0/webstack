@@ -48,15 +48,16 @@ implementation("com.github.ben-manes.caffeine:caffeine:3.2.4")
 class CacheConfig {
 
     @Bean
-    fun cacheManager(): CaffeineCacheManager = CaffeineCacheManager().apply {
-        setCacheNames(listOf("userOrders", "productDetail", "pricingRules"))  // eager creation
+    fun cacheManager(): CaffeineCacheManager = CaffeineCacheManager(
+        "userOrders", "productDetail", "pricingRules",          // fixed cache names
+    ).apply {
         setCaffeine(Caffeine.newBuilder().maximumSize(1_000)
             .expireAfterWrite(Duration.ofMinutes(10)).recordStats())
     }
 }
 ```
 
-`setCacheNames(...)` prevents typo-based proliferation. `recordStats()` is required for Micrometer exposure (see [Observability](#observability)). For per-region TTL, use [Multiple caches with per-region TTL](#multiple-caches-with-per-region-ttl) below instead.
+Passing cache names to the `CaffeineCacheManager` constructor (or `setCacheNames(...)`) **fixes the set of caches and disables dynamic creation** — a `@Cacheable` referencing an unlisted name fails instead of silently creating a cache. The `setCaffeine(...)` spec then applies to those fixed names; it is not a fallback for as-yet-unseen names. (To keep dynamic creation while still customising the builder, omit the names and only call `setCaffeine(...)`.) `recordStats()` is required for Micrometer exposure (see [Observability](#observability)). For per-region TTL, use [Multiple caches with per-region TTL](#multiple-caches-with-per-region-ttl) below instead.
 
 ### `@Cacheable` — read-through
 
@@ -92,7 +93,7 @@ class CancelOrderService(...) : CancelOrderUseCase {
 }
 ```
 
-Eviction fires _after_ commit (`beforeInvocation=false` by default) — the stale entry is removed only once the DB write succeeds.
+Eviction fires _after the method returns_ (`beforeInvocation=false` by default), **not on transaction commit** — Spring Cache is not transaction-aware by default, so a rollback _after_ the method returns still leaves the entry evicted. If you need eviction tied to commit, set `isTransactionAware = true` on the `CaffeineCacheManager` bean (it wraps each cache in a `TransactionAwareCacheDecorator`, deferring writes/evictions to after commit). webstack's default is the non-transaction-aware manager: an eviction on a transaction that ultimately rolls back is harmless (the next read simply reloads from the DB).
 
 ### `@CachePut` — write-through
 
@@ -191,7 +192,7 @@ val stats = (cacheManager.getCache("userOrders") as CaffeineCache).nativeCache.s
 
 `@CacheEvict` on the mutation method covers the same-module case. When a cached value in module A depends on data owned by module B, module A subscribes to B's public domain event via `@ApplicationModuleListener` and calls `cacheManager.getCache(...).evict(...)` directly.
 
-See `docs/backend/modulith-events-patterns.md` (Phase C, pending) for full event patterns.
+See `docs/backend/modulith-events-patterns.md` for full event patterns.
 
 Example: the order module invalidates `userOrders` when `OrderPaid` is published:
 
@@ -336,4 +337,4 @@ Link to the broader board in `docs/backend/observability.md`.
 - **Caffeine GitHub — ben-manes/caffeine:** https://github.com/ben-manes/caffeine — _community: Ben Manes, Caffeine author_
 - **Caffeine Wiki — Population, Eviction, Statistics:** https://github.com/ben-manes/caffeine/wiki — _community: Ben Manes, Caffeine author_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Caffeine 3.X / Kotlin 2.X).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Caffeine 3.X / Kotlin 2.X).

@@ -144,7 +144,7 @@ data class DateRangeRequest(
 }
 ```
 
-The method name must start with `is`. The violation path will be `isEndAfterStart` (class-level); map it to a friendlier name in `ValidationExceptionHandler` if needed.
+Use an `is`-prefixed boolean getter so Bean Validation reads it as a `valid`/`isValid`-style property. The violation path will be `endAfterStart` (the property name derived from the `is`-getter, class-level); map it to a friendlier name in `ValidationExceptionHandler` if needed.
 
 ### Custom `ConstraintValidator` (reusable cross-field rule)
 
@@ -216,7 +216,9 @@ class Invoice private constructor(
 
     fun markAsSent(): Invoice {
         check(status == InvoiceStatus.DRAFT) { "only DRAFT invoices can be sent, was $status" }
-        return copy(status = InvoiceStatus.SENT)
+        // Not a data class (the private ctor guards the invariant factory), so there is no
+        // generated copy(). Construct the next state via the private constructor explicitly.
+        return Invoice(id, recipientEmail, amount, InvoiceStatus.SENT)
     }
 }
 ```
@@ -316,7 +318,7 @@ A repository `save` method that checks `invoice.amountCents <= 0` fires only on 
 - **Hibernate Validator 9.x Reference Guide:** https://docs.hibernate.org/validator/9.0/reference/en-US/html_single/ — _authoritative_
 - **Jakarta Bean Validation 3.1 Specification:** https://jakarta.ee/specifications/bean-validation/3.1/ — _authoritative_
 - **Spring Framework — Validation error responses (ProblemDetail):** https://docs.spring.io/spring-framework/reference/web/webmvc/mvc-ann-rest-exceptions.html — _authoritative_
-- **Konform — Kotlin validation library (GitHub):** https://github.com/konform-kt/konform — _authoritative_
+- **Konform — Kotlin validation library (GitHub):** https://github.com/konform-kt/konform — _community: konform-kt_
 - **Maciej Walkowiak, "Bean Validation with Kotlin and Spring Boot":** https://maciejwalkowiak.com/blog/spring-boot-validation-kotlin/ — _community: Maciej Walkowiak_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Hibernate Validator 9.X / jakarta-validation 3.1.X / Kotlin 2.X).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Hibernate Validator 9.X / jakarta-validation 3.1.X / Kotlin 2.X).

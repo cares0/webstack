@@ -122,9 +122,11 @@ KoTest assertions are infix, fluent, and chainable. Common ones:
 ```kotlin
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.string.shouldStartWith
+import io.kotest.matchers.string.shouldContain as shouldContainSubstring
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.assertions.throwables.shouldThrow
 
@@ -135,9 +137,11 @@ list shouldContain "alpha"
 "hello world" shouldStartWith "hello"
 parsed.shouldBeInstanceOf<UserDto>()
 
+// `message` is String? — assert non-null first, then match the substring.
+// (The collections and string `shouldContain` share a name, so the string one is aliased.)
 shouldThrow<IllegalArgumentException> {
     Money.of(-100, "USD")
-}.message shouldContain "negative"
+}.message.shouldNotBeNull() shouldContainSubstring "negative"
 ```
 
 For Either / Result types, `shouldBeRight()` and `shouldBeLeft()` from kotest-assertions-arrow. For temporal values, `shouldBeBetween(from, to)`. For numerics, `shouldBeWithinPercentageOf(expected, percentage)`.
@@ -173,12 +177,13 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import org.springframework.context.ApplicationEventPublisher
 
 class PayInvoiceUseCaseSpec : BehaviorSpec({
 
     val invoiceRepository = mockk<InvoiceRepository>()
     val paymentGateway = mockk<PaymentGateway>()
-    val publisher = mockk<DomainEventPublisher>(relaxed = true)
+    val publisher = mockk<ApplicationEventPublisher>(relaxed = true)
     val useCase = PayInvoiceUseCase(invoiceRepository, paymentGateway, publisher)
 
     given("an invoice that exists and a successful gateway") {
@@ -198,7 +203,7 @@ class PayInvoiceUseCaseSpec : BehaviorSpec({
             }
 
             then("an InvoicePaid event was published") {
-                verify { publisher.publish(any<InvoicePaid>()) }
+                verify { publisher.publishEvent(any<InvoicePaid>()) }
             }
         }
     }
@@ -302,12 +307,12 @@ Use `runTest` from kotlinx-coroutines-test for deterministic time control. KoTes
 import kotlinx.coroutines.test.runTest
 
 `when`("the async operation runs") {
-    val result = runTest {
-        useCase.processAsync(invoice.id)
-    }
-
+    // runTest returns a TestResult, not the lambda's value — assert inside the block.
     then("the result is success") {
-        result.shouldBeInstanceOf<Success>()
+        runTest {
+            val result = useCase.processAsync(invoice.id)
+            result.shouldBeInstanceOf<Success>()
+        }
     }
 }
 ```
@@ -360,4 +365,4 @@ See `shared/templates/kotest-spec-template.md` for the canonical scaffold.
 - KoTest property-based: https://kotest.io/docs/proptest/property-based-testing.html
 - KoTest releases: https://github.com/kotest/kotest/releases
 
-Last verified: 2026-04-26 (KoTest 6.x stable).
+Last verified: 2026-06-22 (KoTest 6.x stable).

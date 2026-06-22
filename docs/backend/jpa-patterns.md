@@ -19,7 +19,7 @@ The cost is one mapping function per aggregate (`toDomain`, `fromDomain`). That 
 A JPA entity is a Kotlin class annotated with `@Entity` and persistent via JPA. webstack convention: JPA entities live at `infrastructure/persistence/<aggregate>/`. Always pair with a domain class.
 
 ```kotlin
-package com.example.app.billing.internal.persistence
+package com.example.app.billing.infrastructure.persistence
 
 import jakarta.persistence.*
 import java.time.Instant
@@ -171,7 +171,7 @@ interface InvoiceRepository {
 }
 
 // infrastructure layer
-package com.example.app.billing.internal.persistence
+package com.example.app.billing.infrastructure.persistence
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Component
@@ -181,7 +181,7 @@ interface InvoiceJpaRepository : JpaRepository<InvoiceJpaEntity, UUID> {
 }
 
 @Component
-class InvoiceRepositoryImpl(
+class InvoiceJpaAdapter(
     private val jpa: InvoiceJpaRepository,
 ) : InvoiceRepository {
     override fun save(invoice: Invoice): Invoice =
@@ -216,7 +216,7 @@ class PayInvoiceUseCase(
         val charge = gateway.charge(invoice.amount, cardToken)
         invoice.markPaid(charge.transactionId)
         invoices.save(invoice)
-        publisher.publishEvent(InvoicePaid(invoice.id, invoice.amount))
+        publisher.publishEvent(InvoicePaid(invoice.id, invoice.amount, Instant.now()))
         return PayInvoiceResult.Paid(charge.transactionId)
     }
 }
@@ -309,7 +309,7 @@ class InvoiceJpaAdapterSpec(
         @Container
         @ServiceConnection
         @JvmStatic
-        val postgres = PostgreSQLContainer("postgres:16-alpine")
+        val postgres = PostgreSQLContainer<Nothing>("postgres:16-alpine")
     }
 }
 ```
@@ -324,7 +324,7 @@ Pin `org.testcontainers:postgresql` and `org.testcontainers:junit-jupiter` per S
 
 - **JPA entity location:** `com.example.app.<module>.infrastructure.persistence.<aggregate>.<Aggregate>JpaEntity.kt`. Mapping functions in the same file or a sibling `<Aggregate>Mapper.kt`.
 - **Domain class location:** `com.example.app.<module>.domain.<aggregate>.<Aggregate>.kt` (no JPA annotations, no Spring imports).
-- **Repository interface:** in the module's domain package (e.g., `com.example.app.billing.domain.invoice.InvoiceRepository`). Implementation as `<Aggregate>JpaRepositoryImpl` in `<module>/infrastructure/persistence/<aggregate>/`.
+- **Repository interface:** in the module's domain package (e.g., `com.example.app.billing.domain.invoice.InvoiceRepository`). Adapter as `<Aggregate>JpaAdapter` (the name the shipped ArchUnit rule enforces) in `<module>/infrastructure/persistence/<aggregate>/`; it delegates to a Spring Data `<Aggregate>JpaRepository` interface.
 - **Identity:** application-generated UUID (UUIDv7 preferred). `<Aggregate>Id` value object wraps the UUID.
 - **Migrations:** Flyway under `src/main/resources/db/migration/` (global to the application). Prefix table names with the module (`billing_invoice`, `order_orderline`) so ownership is readable in the schema.
 - **Integration tests:** TestContainers `PostgreSQLContainer` with `@ServiceConnection` (Spring Boot 4.0). At least one spec per feature that touches persistence verifies migrations + adapter round-trip.
@@ -340,4 +340,4 @@ Pin `org.testcontainers:postgresql` and `org.testcontainers:junit-jupiter` per S
 - Spring Boot Testcontainers integration: https://docs.spring.io/spring-boot/reference/testing/testcontainers.html
 - `@ServiceConnection`: https://docs.spring.io/spring-boot/reference/testing/testcontainers.html#testing.testcontainers.service-connections
 
-Last verified: 2026-04-26.
+Last verified: 2026-06-22.

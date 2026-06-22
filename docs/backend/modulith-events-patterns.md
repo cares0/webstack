@@ -378,7 +378,7 @@ The listener fires **after** the publisher's transaction commits, never during i
 - A slow listener does not hold the publisher's database connection.
 - A listener failure does not roll back the publisher's committed state.
 
-For intra-module events that must execute **within** the same transaction, use a plain `@EventListener` (synchronous, same transaction) instead of `@ApplicationModuleListener`.
+For intra-module events that must execute **within** the publisher's transaction, use a plain `@EventListener` instead of `@ApplicationModuleListener`. A plain `@EventListener` is invoked **synchronously and inline** on the publishing thread at the point `publishEvent(...)` is called, so it simply runs inside whatever transaction is already active on that thread (it does not start or guarantee one of its own) — a listener exception propagates back to the publisher and rolls the shared transaction back. When you instead need to bind to a transaction phase (e.g. run only `AFTER_COMMIT`), `@TransactionalEventListener` is the phase-bound tool.
 
 ### Payload size
 
@@ -410,4 +410,4 @@ The `serialized_event` column stores the event as JSON. Large payloads bloat the
 - **Chris Richardson — Transactional Outbox Pattern:** https://microservices.io/patterns/data/transactional-outbox.html — _community: microservices.io_
 - **Chris Richardson — Saga Pattern:** https://microservices.io/patterns/data/saga.html — _community: microservices.io_
 
-Last verified: 2026-05-04 (Spring Modulith 2.X / Spring Boot 4.0.X / Kotlin 2.X).
+Last verified: 2026-06-22 (Spring Modulith 2.X / Spring Boot 4.0.X / Kotlin 2.X).

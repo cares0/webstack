@@ -1,11 +1,11 @@
 # Error handling (RFC 7807 ProblemDetail)
 
 > Reference for build-be SubAgent and backend-implementer.
-> Spring 7 ProblemDetail + global @RestControllerAdvice + domain exception → HTTP mapping for webstack's Spring Boot 4.0 + Kotlin stack.
+> Spring's `ProblemDetail` (since Framework 6) + global @RestControllerAdvice + domain exception → HTTP mapping for webstack's Spring Boot 4.0 + Kotlin stack.
 
 ## What is webstack error handling
 
-webstack uses **`ProblemDetail`** — Spring 7's first-class implementation of **RFC 9457** ("Problem Details for HTTP APIs", July 2023), which obsoletes RFC 7807 (2016). The two specifications are backward-compatible: Spring 7's `ProblemDetail` implements both, and clients that speak RFC 7807 continue to work without change.
+webstack uses **`ProblemDetail`** — Spring's first-class implementation (in `org.springframework.http`, present since Spring Framework 6.0) of **RFC 9457** ("Problem Details for HTTP APIs", July 2023), which obsoletes RFC 7807 (2016). The two specifications are backward-compatible: `ProblemDetail` satisfies both, and clients that speak RFC 7807 continue to work without change.
 
 A problem detail response is a JSON document with a well-known media type and a fixed set of top-level fields. Inconsistent error shapes — `{"error": "not found"}` here, `{"message": "Order not found"}` there — collapse into a uniform, machine-readable envelope:
 
@@ -79,7 +79,8 @@ Each `@RestControllerAdvice` is scoped to the exception types it handles using `
 
 ```kotlin
 // billing/infrastructure/http/BillingExceptionHandler.kt
-@RestControllerAdvice
+// Scoped to the billing module's controllers so it only intercepts billing exceptions.
+@RestControllerAdvice(basePackages = ["com.example.app.billing.infrastructure.http"])
 class BillingExceptionHandler {
 
     @ExceptionHandler(InvoiceNotFoundException::class)
@@ -118,7 +119,9 @@ The catch-all `GlobalExceptionHandler` maps any unknown `RuntimeException` to 50
 
 ```kotlin
 // shared/infrastructure/http/GlobalExceptionHandler.kt
+// Lowest precedence so module-scoped advices win; this is the catch-all of last resort.
 @RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
 class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -158,7 +161,8 @@ Domain exceptions live in `<module>/domain/<aggregate>/` and are **pure Kotlin**
 sealed class DomainException(open val code: String, message: String) : RuntimeException(message)
 
 class ValidationException(override val code: String, message: String) : DomainException(code, message)
-class NotFoundException(override val code: String, message: String) : DomainException(code, message)
+// resourceId carries the identifier of the missing resource for message interpolation ({0}).
+class NotFoundException(override val code: String, val resourceId: String, message: String) : DomainException(code, message)
 class ConflictException(override val code: String, message: String) : DomainException(code, message)
 class UnauthorizedException(override val code: String, message: String) : DomainException(code, message)
 class ForbiddenException(override val code: String, message: String) : DomainException(code, message)
@@ -171,6 +175,7 @@ Individual aggregates throw typed subclasses, making the error code part of the 
 ```kotlin
 class InvoiceNotFoundException(invoiceId: String) : NotFoundException(
     code = "INVOICE_NOT_FOUND",
+    resourceId = invoiceId,
     message = "No invoice with id '$invoiceId' exists.",
 )
 ```
@@ -215,7 +220,7 @@ Add a matching `messages_ko.properties` file with the same keys and Korean value
 
 ```kotlin
 // billing/infrastructure/http/BillingExceptionHandler.kt
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["com.example.app.billing.infrastructure.http"])
 class BillingExceptionHandler(private val messageSource: MessageSource) {
 
     @ExceptionHandler(InvoiceNotFoundException::class)
@@ -315,4 +320,4 @@ A single global handler must import every domain exception type, coupling all mo
 - **Spring Boot Reference — Spring MVC error handling:** https://docs.spring.io/spring-boot/reference/web/spring-mvc.html — _authoritative_
 - **Maciej Walkowiak, "Problem Details (RFC 7807) with Spring Boot 3":** https://maciejwalkowiak.com/blog/problem-details-spring-boot-3/ — _community: Maciej Walkowiak_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring 7.0.X / Kotlin 2.X / RFC 7807 + RFC 9457).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Spring 7.0.X / Kotlin 2.X / RFC 7807 + RFC 9457).

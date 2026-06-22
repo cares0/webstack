@@ -5,13 +5,13 @@
 
 ## What is API versioning in webstack
 
-API versioning in webstack gives each **incompatible contract generation** its own stable URI so existing consumers keep working while new consumers adopt the updated contract. webstack applies versioning at the URI level (`/v1/`, `/v2/`) and records every version as a discrete OpenAPI 3.1 document.
+API versioning in webstack gives each **incompatible contract generation** its own stable URI so existing consumers keep working while new consumers adopt the updated contract. webstack applies versioning at the URI level under the `/api` base path (`/api/v1/`, `/api/v2/`) and records every version as a discrete OpenAPI 3.1 document.
 
 ### Minor vs major change policy
 
 **Minor (backward-compatible) changes** — safe to ship without a new version path. Examples: adding an optional request field, adding a response field (consumers ignore unknown fields per the robustness principle), adding an optional enum value with a documented default, adding a new endpoint under the existing prefix, relaxing a constraint.
 
-**Major (breaking) changes** — require a new URI prefix (`/v2/...`). The old version continues serving traffic for the sunset window. Examples: removing or renaming a field, changing a field type, making an optional field required, removing an endpoint, changing authentication semantics.
+**Major (breaking) changes** — require a new URI prefix (`/api/v2/...`). The old version continues serving traffic for the sunset window. Examples: removing or renaming a field, changing a field type, making an optional field required, removing an endpoint, changing authentication semantics.
 
 The `info.version` in the OpenAPI 3.1 contract follows `MAJOR.MINOR.PATCH`. A bump to `MAJOR` always coincides with a new URI prefix.
 
@@ -25,9 +25,9 @@ webstack chooses URI versioning as its primary strategy for these reasons:
 
 **Simplicity.** The version appears in every log line, browser URL bar, and curl command. No HTTP header knowledge needed to identify the target version.
 
-**CDN and Vercel friendliness.** CDNs and Vercel's edge cache by URL path by default. Path-prefix routing rules (`/v1/` vs `/v2/`) require zero special configuration. Header-based versioning requires custom `Vary` cache-key setup that many CDNs ignore.
+**CDN and Vercel friendliness.** CDNs and Vercel's edge cache by URL path by default. Path-prefix routing rules (`/api/v1/` vs `/api/v2/`) require zero special configuration. Header-based versioning requires custom `Vary` cache-key setup that many CDNs ignore.
 
-**springdoc multi-group.** `GroupedOpenApi.builder().pathsToMatch("/v1/**")` needs no extra code. springdoc exposes `/v3/api-docs/v1` and `/v3/api-docs/v2` as independent OpenAPI 3.1 documents without custom request matchers.
+**springdoc multi-group.** `GroupedOpenApi.builder().pathsToMatch("/api/v1/**")` needs no extra code. springdoc exposes `/v3/api-docs/v1` and `/v3/api-docs/v2` as independent OpenAPI 3.1 documents without custom request matchers.
 
 **Tooling alignment.** OpenAPI 3.1 `servers` entries, Postman, Swagger UI, and the generated TypeScript SDK `baseURL` all use URL paths as the natural version token.
 
@@ -36,11 +36,11 @@ webstack chooses URI versioning as its primary strategy for these reasons:
 ### URI prefix
 
 ```
-/v1/<resource>
-/v1/<resource>/{id}
+/api/v1/<resource>
+/api/v1/<resource>/{id}
 ```
 
-There is no unversioned public endpoint. Actuator probes (`/actuator/health`) are excluded — they are infrastructure concerns.
+The `/api` base path matches the `/api/**` CORS rule (see `docs/backend/security-beyond-auth.md`). There is no unversioned public endpoint. Actuator probes (`/actuator/health`) are excluded — they are infrastructure concerns.
 
 ### Spring `@RequestMapping`
 
@@ -49,7 +49,7 @@ Declare the version prefix at the class level; handlers use relative paths:
 ```kotlin
 // order/infrastructure/http/OrderController.kt
 @RestController
-@RequestMapping("/v1/orders")
+@RequestMapping("/api/v1/orders")
 class OrderController(private val placeOrder: PlaceOrderUseCase) {
 
     @PostMapping
@@ -63,7 +63,7 @@ class OrderController(private val placeOrder: PlaceOrderUseCase) {
 }
 ```
 
-When v2 is introduced, a second controller handles `/v2/orders`. The v1 controller stays intact for the sunset window. Both may delegate to the same application service; they differ only in DTO shapes.
+When v2 is introduced, a second controller handles `/api/v2/orders`. The v1 controller stays intact for the sunset window. Both may delegate to the same application service; they differ only in DTO shapes.
 
 ### springdoc `GroupedOpenApi` per version
 
@@ -71,13 +71,13 @@ One `GroupedOpenApi` bean per active version, keyed by path prefix. See [springd
 
 ## URI vs media-type vs header — comparison
 
-| Criterion | URI versioning (`/v1/`) | Media-type versioning (`Accept: application/vnd.api.v1+json`) | Header versioning (`X-API-Version: 1`) |
+| Criterion | URI versioning (`/api/v1/`) | Media-type versioning (`Accept: application/vnd.api.v1+json`) | Header versioning (`X-API-Version: 1`) |
 |---|---|---|---|
 | **Cache friendliness** | Excellent — URL is the natural cache key; CDNs and Vercel edge work out of the box. | Poor — requires `Vary: Accept`; many CDNs ignore `Vary`. | Poor — custom `Vary` header; rarely supported by default CDN config. |
 | **Discoverability** | High — visible in URL, logs, curl, browser address bar. | Low — version hidden in request headers. | Low — custom header invisible without HTTP inspection tooling. |
-| **Client library ergonomics** | Excellent — SDK `baseURL` is `https://api.example.com/v1`; v2 changes only the base URL. | Moderate — each request must set `Accept` correctly. | Moderate — easy to forget; proxy stripping is a common failure mode. |
+| **Client library ergonomics** | Excellent — SDK `baseURL` is `https://api.example.com/api/v1`; v2 changes only the base URL. | Moderate — each request must set `Accept` correctly. | Moderate — easy to forget; proxy stripping is a common failure mode. |
 | **REST purity** | Debated — pragmatically accepted by Stripe, GitHub, Twilio. | Higher — same resource URL, representation negotiated by `Accept`. | Lower — no standard RFC backing for versioning via custom header. |
-| **springdoc support** | First-class — `pathsToMatch("/v1/**")` requires no extra code. | Limited — needs custom `RequestMappingHandlerMapping`. | Limited — `GroupedOpenApi` cannot filter by arbitrary request headers. |
+| **springdoc support** | First-class — `pathsToMatch("/api/v1/**")` requires no extra code. | Limited — needs custom `RequestMappingHandlerMapping`. | Limited — `GroupedOpenApi` cannot filter by arbitrary request headers. |
 
 **webstack verdict:** URI versioning. CDN, springdoc, and tooling advantages outweigh the REST-purity objection.
 
@@ -110,7 +110,7 @@ data class OrderResponse(
 ### Process
 
 1. **Author a new contract.** Create `.webstack/contracts/<feature>-v2.yaml`, `info.version: 2.0.0`.
-2. **Implement v2 controllers.** Add `OrderV2Controller` at `/v2/orders`. Keep `OrderController` (`/v1/orders`) intact.
+2. **Implement v2 controllers.** Add `OrderV2Controller` at `/api/v2/orders`. Keep `OrderController` (`/api/v1/orders`) intact.
 3. **Add a v2 `GroupedOpenApi` bean** (see [springdoc multi-version groups](#springdoc-multi-version-groups)).
 4. **Add `Deprecation` and `Sunset` headers to all v1 responses** on the day v2 ships (see [Deprecation & sunset headers](#deprecation--sunset-headers)).
 5. **Announce the window.** Minimum sunset: **6 months** public / **3 months** internal.
@@ -121,7 +121,7 @@ data class OrderResponse(
 
 ### RFC 9745 — `Deprecation` header
 
-RFC 9745 defines `Deprecation` as an Item Structured Field whose value is a Unix timestamp (Section 2.1). The date indicates when the resource entered deprecation — it may be past or future:
+RFC 9745 defines `Deprecation` as a Structured Field Item whose value is an sf-date (RFC 9651 Date type) — serialized as `@` followed by an integer number of seconds since the Unix epoch (Section 2.1). The date indicates when the resource entered deprecation — it may be past or future:
 
 ```
 Deprecation: @1751328000
@@ -151,8 +151,8 @@ Mark deprecated operations in the OpenAPI document using the Swagger annotation.
 ```kotlin
 @Operation(
     deprecated = true,
-    summary = "Place an order (deprecated — use /v2/orders)",
-    description = "Deprecated since 2026-06-01. Sunset: 2027-01-01. Migrate to POST /v2/orders.",
+    summary = "Place an order (deprecated — use /api/v2/orders)",
+    description = "Deprecated since 2026-06-01. Sunset: 2027-01-01. Migrate to POST /api/v2/orders.",
 )
 @PostMapping
 @ResponseStatus(HttpStatus.CREATED)
@@ -172,7 +172,7 @@ Use a `HandlerInterceptor` to inject `Deprecation` and `Sunset` headers for all 
 class DeprecationHeaderInterceptor : HandlerInterceptor {
 
     private val deprecatedPaths: Map<String, DeprecationEntry> = mapOf(
-        "/v1/" to DeprecationEntry(
+        "/api/v1/" to DeprecationEntry(
             deprecationEpoch = 1751328000L,
             sunsetHttpDate   = "Tue, 01 Jul 2027 00:00:00 GMT",
             linkUrl          = "https://api.example.com/docs/migration/v2",
@@ -238,7 +238,7 @@ class OpenApiGroupConfig {
     fun v1ApiGroup(): GroupedOpenApi =
         GroupedOpenApi.builder()
             .group("v1")
-            .pathsToMatch("/v1/**")
+            .pathsToMatch("/api/v1/**")
             .addOpenApiCustomizer { api ->
                 api.info(Info().title("Example API").version("1.5.0")
                     .description("v1 — deprecated. Sunset: 2027-01-01. Use v2."))
@@ -249,7 +249,7 @@ class OpenApiGroupConfig {
     fun v2ApiGroup(): GroupedOpenApi =
         GroupedOpenApi.builder()
             .group("v2")
-            .pathsToMatch("/v2/**")
+            .pathsToMatch("/api/v2/**")
             .addOpenApiCustomizer { api ->
                 api.info(Info().title("Example API").version("2.0.0"))
             }
@@ -261,17 +261,17 @@ class OpenApiGroupConfig {
 
 | URL | Content |
 |---|---|
-| `/v3/api-docs/v1` | OpenAPI 3.1 JSON for `/v1/**` |
-| `/v3/api-docs/v1.yaml` | OpenAPI 3.1 YAML for `/v1/**` |
-| `/v3/api-docs/v2` | OpenAPI 3.1 JSON for `/v2/**` |
-| `/v3/api-docs/v2.yaml` | OpenAPI 3.1 YAML for `/v2/**` |
+| `/v3/api-docs/v1` | OpenAPI 3.1 JSON for `/api/v1/**` |
+| `/v3/api-docs/v1.yaml` | OpenAPI 3.1 YAML for `/api/v1/**` |
+| `/v3/api-docs/v2` | OpenAPI 3.1 JSON for `/api/v2/**` |
+| `/v3/api-docs/v2.yaml` | OpenAPI 3.1 YAML for `/api/v2/**` |
 
 ### Dependencies and properties
 
-Gradle (`springdoc-openapi 2.x` requires Spring Boot 4 + Java 17+):
+Gradle (the `springdoc-openapi 3.0.x` line targets Spring Boot 4; the 2.x line — including 2.8.x — is Spring Boot 3 only):
 
 ```kotlin
-implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3")
+implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0") // pin to the latest 3.0.x (verify against springdoc releases at implementation time)
 ```
 
 ```yaml
@@ -307,13 +307,13 @@ Versioning-specific drift:
 
 ## Anti-patterns
 
-**1. Mixing versioning strategies (header + URI).** `X-API-Version: 2` alongside `/v1/orders` creates two independent axes. CDNs cache by URL; the header is invisible. `GroupedOpenApi` cannot reconcile both.
+**1. Mixing versioning strategies (header + URI).** `X-API-Version: 2` alongside `/api/v1/orders` creates two independent axes. CDNs cache by URL; the header is invisible. `GroupedOpenApi` cannot reconcile both.
 
-**2. Removing a deprecated endpoint without a sunset window.** Deleting `/v1/` without `Deprecation`/`Sunset` headers breaks consumers silently. Minimum window: 3 months internal, 6 months public. Add headers on day 1 of deprecation.
+**2. Removing a deprecated endpoint without a sunset window.** Deleting `/api/v1/` without `Deprecation`/`Sunset` headers breaks consumers silently. Minimum window: 3 months internal, 6 months public. Add headers on day 1 of deprecation.
 
-**3. Labelling breaking changes as minor.** Removing a required field, renaming a path param, or changing a field type must go to `/v2/`. Shipping them under `/v1/` causes silent runtime failures.
+**3. Labelling breaking changes as minor.** Removing a required field, renaming a path param, or changing a field type must go to `/api/v2/`. Shipping them under `/api/v1/` causes silent runtime failures.
 
-**4. Version-less public endpoints.** An unversioned endpoint (e.g., `/orders`) cannot gain a version prefix later without breaking existing callers. Apply `/v1/` from the first deployment.
+**4. Version-less public endpoints.** An unversioned endpoint (e.g., `/orders` or even `/api/orders`) cannot gain a version prefix later without breaking existing callers. Apply `/api/v1/` from the first deployment.
 
 **5. Hard-coding version strings in business logic.** The version prefix is HTTP transport — it must not appear in domain classes or application services. Version-specific DTO shapes belong in v1/v2 controller/DTO layers; the domain layer is version-agnostic.
 
@@ -329,4 +329,4 @@ Versioning-specific drift:
 - **springdoc-openapi — GroupedOpenApi reference:** https://springdoc.org/ — _authoritative_
 - **Zalando RESTful API Guidelines — versioning, deprecation, sunset:** https://opensource.zalando.com/restful-api-guidelines/ — _community: Zalando Engineering_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / springdoc-openapi 2.X / OpenAPI 3.1 / RFC 9745 + RFC 8594).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / springdoc-openapi 3.0.X / OpenAPI 3.1 / RFC 9745 + RFC 8594).

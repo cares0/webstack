@@ -34,7 +34,7 @@ ArchUnit covers the complementary dimension: **intra-module structural rules**. 
 | DDD aggregate root discipline | no | yes |
 | Value object immutability | no | yes |
 
-A `domain/Invoice.kt` that imports `jakarta.persistence.Entity` passes the Modulith verifier silently — ArchUnit catches it. Spring Modulith 2.x documents a jMolecules integration (`JMoleculesArchitectureRules.ensureHexagonal(...)`) via `VerificationOptions`; webstack augments this with naming and structural rules that jMolecules does not cover.
+A `domain/Invoice.kt` that imports `jakarta.persistence.Entity` passes the Modulith verifier silently — ArchUnit catches it. Spring Modulith 2.x documents a jMolecules integration (`JMoleculesArchitectureRules.ensureHexagonal(...)`) via `VerificationOptions` (verify the exact API name against your jmolecules-integration + Modulith 2.x at implementation time); webstack augments this with naming and structural rules that jMolecules does not cover.
 
 ## webstack convention
 
@@ -156,9 +156,11 @@ noClasses().that().resideOutsideOfPackage("..domain..")
 
 ```kotlin
 classes().that().areAnnotatedWith(DomainEvent::class.java)
-    .should().resideInAPackage("com.example.app.(*)")
+    .should().resideInAPackage("com.example.app.*")
     .because("Domain events must be in module root so Spring Modulith treats them as public.")
 ```
+
+`resideInAPackage` treats `(...)` capture groups as literal characters, not wildcards (unlike `slices().matching(...)`). Use `com.example.app.*` — a single `*` matches exactly one package segment, i.e. the module root (`com.example.app.billing`), and excludes deeper packages like `com.example.app.billing.domain`.
 
 ## Sample test class
 
@@ -258,7 +260,7 @@ class ArchitectureTest {
 
     @ArchTest val domainEventsAreInModuleRoot: ArchRule =
         classes().that().areAnnotatedWith(DomainEvent::class.java)
-            .should().resideInAPackage("com.example.app.(*)")
+            .should().resideInAPackage("com.example.app.*")  // single * = one segment (module root)
             .because("Domain events must be in module root so Spring Modulith treats them as public.")
 
     @ArchTest val aggregateRootIsPublicEntryPoint: ArchRule =
@@ -302,4 +304,4 @@ private fun beKotlinDataClass() =
 - **jMolecules ArchUnit integration:** https://github.com/xmolecules/jmolecules-integrations/tree/main/jmolecules-archunit — _community: xmolecules_
 - **webstack spring-modulith.md:** docs/backend/spring-modulith.md — _internal cross-reference_
 
-Last verified: 2026-05-04 (ArchUnit 1.4.2 / Spring Modulith 2.x / Kotlin 2.x).
+Last verified: 2026-06-22 (ArchUnit 1.4.2 / Spring Modulith 2.x / Kotlin 2.x).

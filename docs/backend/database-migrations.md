@@ -2,7 +2,7 @@
 
 > Reference for build-be SubAgent and backend-implementer.
 
-Flyway 10.x conventions, expand-contract zero-downtime migrations, batch backfill, Testcontainers PR dry-runs, and rollback policy for webstack's Spring Boot + Supabase Postgres stack.
+Flyway conventions (BOM-managed: Flyway 11.x with Spring Boot 4), expand-contract zero-downtime migrations, batch backfill, Testcontainers PR dry-runs, and rollback policy for webstack's Spring Boot + Supabase Postgres stack.
 
 ## What is Flyway in webstack
 
@@ -307,9 +307,9 @@ Restrict this endpoint to internal/ops networks. The response lists all migratio
 
 ### Grafana dashboard (B3 observability pairing)
 
-The B3 stack scrapes Actuator metrics via Micrometer/Prometheus. Recommended alerts:
+The B3 stack scrapes Actuator metrics via Micrometer/Prometheus. Recommended alerts (VERIFY the `flyway_migrations_total` / `flyway_migration_seconds` meter names and tags exist in your Boot 4 + Micrometer version at implementation time — Flyway Actuator metric exposure has shifted across versions; otherwise alert on the `/actuator/flyway` endpoint state):
 
-- `flyway_migrations_total{state="pending"} > 0` — pod failed to migrate before receiving traffic.
+- `flyway_migrations_total{state="pending"} > 0` — the app instance failed to migrate before receiving traffic.
 - `flyway_migrations_total{state="failed"} > 0` — partial migration in error state.
 - `flyway_migration_seconds > 30` — candidate for batch backfill refactor.
 
@@ -359,4 +359,4 @@ Adding `NOT NULL` before every row has a value triggers a full table scan and lo
 - **Postgres 16 docs — `ALTER TABLE`:** https://www.postgresql.org/docs/16/sql-altertable.html — _authoritative_
 - **Brandur Leach, "A Missing Link in Postgres 11: Fast Column Creation with Defaults":** https://brandur.org/postgres-default — _community: Brandur Leach_
 
-Last verified: 2026-05-04 (Flyway 11.X / Spring Boot 4.0.X / Postgres 16.X).
+Last verified: 2026-06-22 (Flyway 11.X / Spring Boot 4.0.X / Postgres 16.X).

@@ -97,7 +97,7 @@ import org.springframework.modulith.PackageInfo
 internal class ModuleMetadata
 ```
 
-webstack convention: Kotlin codebases use the `@PackageInfo` form to avoid a single Java source file in an otherwise-Kotlin module.
+webstack convention: use the Java `package-info.java` form, even in an otherwise-Kotlin module, for tooling consistency with the Spring Modulith team's recommendation. The `@PackageInfo` Kotlin form is supported and works, but is not the default. Pick one form per module — don't mix.
 
 - **`displayName`** — used by the documentation generator.
 - **`allowedDependencies`** — explicit whitelist. Empty (the default) means "no other internal modules"; depending on Spring infrastructure or `java.*` is always allowed.
@@ -115,11 +115,11 @@ The Modulith verifier (run as a unit test, see "Verifier test") reads:
 
 It fails the build when:
 
-- A class in module B imports a class from `module-a.internal.*`.
+- A class in module B imports a class from a non-public sub-package of module A (anything below the module root, e.g. `module-a.application.*` / `module-a.infrastructure.*`).
 - A class in module B imports any class from module A unless A's package is in B's `allowedDependencies`.
-- An event handler in module B handles an event whose declaring class is in `module-a.internal.*`.
+- An event handler in module B handles an event whose declaring class is in a non-public sub-package of module A.
 
-The "public API only" rule means: events, DTOs, and service interfaces meant for cross-module use sit at the module root; anything internal stays in `internal/`. This is the same discipline Java's package-private modifier was supposed to provide but rarely does, hardened with build-time enforcement.
+The "public API only" rule means: events, DTOs, and service interfaces meant for cross-module use sit at the module root; everything else stays in the module's `application/` and `infrastructure/` sub-packages. This is the same discipline Java's package-private modifier was supposed to provide but rarely does, hardened with build-time enforcement.
 
 ## Bounded context = module (with hexagonal layers inside)
 
@@ -193,7 +193,7 @@ class OrderInvoicePaidHandler(private val orderService: OrderService) {
 // build.gradle.kts — pin to latest Spring Modulith 2.x stable
 implementation(platform("org.springframework.modulith:spring-modulith-bom:2.0.6"))
 implementation("org.springframework.modulith:spring-modulith-starter-jpa")
-implementation("org.springframework.modulith:spring-modulith-events-jpa")
+// (spring-modulith-events-jpa is pulled in transitively by -starter-jpa; no separate entry needed)
 ```
 
 The BOM keeps every Modulith artifact in lockstep. Verify the latest version at https://github.com/spring-projects/spring-modulith/releases at implementation time; webstack updates this pin per major Spring Boot release.
@@ -253,9 +253,9 @@ In webstack, `code-reviewer` SubAgent runs this test in P5 review and blocks mer
 ## webstack convention
 
 - **Bounded context discovery → module list.** `feature-architect` SubAgent produces the BC list during `/webstack:feature` P1; build-be SubAgent creates one Modulith module per BC, including `package-info.java`.
-- **Public API surface, by default, is the module root.** Domain events and application service interfaces live in `com.example.app.<module>.*`. Implementation details, JPA entities, repositories, adapters, and internal services live in `com.example.app.<module>.internal.*`.
+- **Public API surface, by default, is the module root.** Domain events and application service interfaces live in `com.example.app.<module>.*` (the module root). Implementation details — JPA entities, repositories, adapters, and internal services — live in the module's `application/` and `infrastructure/` sub-packages; only module-root types are public to other modules. There is no `internal/` package in webstack.
 - **Cross-module communication via events only.** Direct service-to-service calls between modules are forbidden by the verifier and policed in code review.
-- **Event publication starter required.** Always include `spring-modulith-events-jpa`; reliability of cross-module events is non-negotiable.
+- **Event publication starter required.** Always include `spring-modulith-starter-jpa` (it pulls in `spring-modulith-events-jpa` transitively); reliability of cross-module events is non-negotiable.
 - **Verifier test in CI.** `ModulithBoundaryTest` lives at `src/test/kotlin/com/example/app/`; CI fails on violation.
 - **Documentation auto-rendered.** Documenter test runs on PR; rendered diagrams attached as artifact for review.
 
@@ -267,4 +267,4 @@ In webstack, `code-reviewer` SubAgent runs this test in P5 review and blocks mer
 - Event publication registry: https://docs.spring.io/spring-modulith/reference/events.html
 - Spring Modulith releases: https://github.com/spring-projects/spring-modulith/releases
 
-Last verified: 2026-04-26 (Spring Modulith 2.x stable).
+Last verified: 2026-06-22 (Spring Modulith 2.x stable).

@@ -59,6 +59,8 @@ jooq {
 
 The Spring Boot jOOQ starter wires `DSLContext` as a Spring bean automatically. PostgreSQL is the webstack default; pick the matching dialect class for other databases.
 
+The `jdbc { ... }` block above shows a fixed `localhost:5432` URL only for illustration. In webstack, codegen runs against the **Flyway-migrated Testcontainers** database (see "Code generation" below), so the `jdbc.url`/`user`/`password` should be wired to the container's generated JDBC URL at task time rather than hard-coded to a developer's local Postgres — that is what keeps the generated classes in lockstep with the latest migration.
+
 ## Code generation
 
 Run `./gradlew generateJooq` to produce typed classes from the schema. webstack convention runs codegen against a Flyway-migrated test database (Testcontainers in CI) so generated classes always match the latest migration:
@@ -196,7 +198,7 @@ The `KotlinGenerator` (set in the `build.gradle.kts` snippet above) emits idioma
 
 The result is `?.` boilerplate in code that semantically should not be nullable. Two practical mitigations:
 
-1. **Generate to typed result with `.into(<Dto>::class.java)`.** Project to a hand-written DTO with the correct nullability per field. The generator's nullable types only matter at the boundary; once you map into a DTO, idiomatic Kotlin types take over. This is webstack's default pattern (see "Reading: typed projections" earlier in this doc).
+1. **Generate to typed result with `.into(<Dto>::class.java)`.** Project to a hand-written DTO with the correct nullability per field. The generator's nullable types only matter at the boundary; once you map into a DTO, idiomatic Kotlin types take over. This is webstack's default pattern (see "Records vs DTOs" above).
 2. **Custom code generator template.** For projects that want non-null types directly on the generated record classes, write a custom `JavaWriter` template that consults the column's `NOT NULL` flag. The setup is involved (subclass `KotlinGenerator`, override `generateRecord(...)`); reach for it only if you are reading raw `*Record` types pervasively (which webstack's "DTO boundary always" rule discourages anyway).
 
 If this nullability friction starts to dominate the developer experience, the underlying signal is that you're reading too many raw records. Project to DTOs and the friction disappears.
@@ -208,4 +210,4 @@ If this nullability friction starts to dominate the developer experience, the un
 - Spring Boot jOOQ starter: https://docs.spring.io/spring-boot/reference/data/sql.html#data.sql.jooq
 - jOOQ Kotlin generator: https://www.jooq.org/doc/latest/manual/code-generation/codegen-kotlin/
 
-Last verified: 2026-04-26.
+Last verified: 2026-06-22.

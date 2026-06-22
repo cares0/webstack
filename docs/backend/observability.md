@@ -28,7 +28,7 @@ logstash-logback-encoder       ← JSON log encoding + MDC field output
 
 ## Why Micrometer + OTel + Logback JSON
 
-**Spring Boot 4 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction, and Spring Boot 4.0 hardens it with the new `spring-boot-starter-opentelemetry`. HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 4.0 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
+**Spring Boot 4 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction, and Spring Boot 4.0 hardens it with the new `spring-boot-starter-opentelemetry` (VERIFY this starter exists/its exact coordinates in the Boot 4 GA release at implementation time). HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 4.0 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
 
 **CNCF standard — vendor-neutral.** Switching from Grafana Cloud to Honeycomb or Datadog is an env var change, not a code change.
 
@@ -139,10 +139,21 @@ management:
 
 ### Auto-instrumentation
 
-Attach `opentelemetry-javaagent.jar` at JVM startup via `JAVA_TOOL_OPTIONS`:
+Attach `opentelemetry-javaagent.jar` at JVM startup via `JAVA_TOOL_OPTIONS`. On webstack's default single-VM deployment these env vars live in the systemd `app.env` file read by the `webstack-app.service` unit (the same place the rest of the app's environment is set — see `docs/infrastructure/`):
+
+```bash
+# /opt/app/app.env  (loaded by webstack-app.service)
+JAVA_TOOL_OPTIONS=-javaagent:/opt/otel/opentelemetry-javaagent.jar
+OTEL_SERVICE_NAME=billing-service
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_LOGS_EXPORTER=otlp
+```
+
+If you later scale beyond the single free VM onto Kubernetes, the same variables move into the Pod spec's `env:` section:
 
 ```yaml
-# kubernetes/deployment.yaml (env section)
+# kubernetes/deployment.yaml (env section) — opt-in, only if you run on K8s later
 - name: JAVA_TOOL_OPTIONS
   value: "-javaagent:/opt/otel/opentelemetry-javaagent.jar"
 - name: OTEL_SERVICE_NAME
@@ -372,11 +383,14 @@ management:
 
 Spring Boot exposes `/actuator/health/liveness` (JVM alive) and `/actuator/health/readiness` (all dependencies ready) as separate paths.
 
-**Do not** include database checks in the liveness probe — a transient DB timeout should drain traffic (readiness), not restart the pod (liveness). Register external checks as `HealthIndicator` beans; Spring Boot wires them into `/readiness` automatically.
+**Do not** include database checks in the liveness probe — a transient DB timeout should drain traffic (readiness), not restart the service (liveness). Register external checks as `HealthIndicator` beans; Spring Boot wires them into `/readiness` automatically.
 
-Kubernetes probe configuration:
+On webstack's default single-VM deployment there is no Kubernetes orchestrator: systemd keeps the process alive (an equivalent of the liveness signal — `Restart=on-failure` on `webstack-app.service`), and Caddy / an uptime check polls `/actuator/health/readiness` on `localhost:8080`. The separate liveness/readiness split still matters so those checks behave correctly.
+
+If you later scale beyond the single free VM onto Kubernetes, the same two endpoints map to probes (opt-in, only if you run on K8s later):
 
 ```yaml
+# opt-in — only if you run on Kubernetes later
 livenessProbe:
   httpGet: { path: /actuator/health/liveness, port: 8080 }
   initialDelaySeconds: 30
@@ -409,7 +423,7 @@ log.info("Invoice created", StructuredArguments.keyValue("invoiceId", invoice.id
 
 **5. Exposing sensitive Actuator endpoints.** `/actuator/env`, `/actuator/beans`, and `/actuator/heapdump` expose internals. Limit `endpoints.web.exposure.include` to `health` for external traffic; require an authenticated role for everything else.
 
-**6. Single `/health` for both K8s probe types.** A DB outage should drain traffic (readiness not-ready), not restart the pod (liveness kill). Always configure separate probes at the liveness and readiness paths.
+**6. Conflating liveness and readiness.** A DB outage should drain traffic (readiness not-ready), not restart the process (liveness kill / systemd restart). Keep the liveness and readiness paths separate, whether they are polled by systemd + Caddy on the single VM or by Kubernetes probes later.
 
 ## Sources
 
@@ -419,4 +433,4 @@ log.info("Invoice created", StructuredArguments.keyValue("invoiceId", invoice.id
 - **logstash-logback-encoder (logfellow):** https://github.com/logfellow/logstash-logback-encoder — _community: logfellow org_
 - **Spring Boot Reference — Observability:** https://docs.spring.io/spring-boot/reference/actuator/observability.html — _authoritative_
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Micrometer 1.16.X / OpenTelemetry Java 2.X / Grafana OpenTelemetry Distribution 2.X / Logback 1.5.X).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Micrometer 1.16.X / OpenTelemetry Java 2.X / Grafana OpenTelemetry Distribution 2.X / Logback 1.5.X).
