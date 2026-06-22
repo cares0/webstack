@@ -11,7 +11,7 @@ webstack logging is a three-layer system that produces structured, correlated ou
 
 ```
 Browser (Next.js / React)
-  └─ Sentry SDK 8.X breadcrumbs + captureException
+  └─ Sentry SDK 9.x breadcrumbs + captureException
        └─ X-Request-Id header ──────────────────┐
                                                  ↓
                                        BE (Spring Boot 4.0 / Kotlin)
@@ -420,4 +420,4 @@ A typical early-stage project (< 100 req/min, INFO level, 10% DEBUG sampling) in
 - **OWASP Logging Cheat Sheet:** https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html — _community: OWASP_
 - **OpenTelemetry — Zero-code Java agent (Logback MDC bridge):** https://opentelemetry.io/docs/zero-code/java/agent/ — _authoritative: OpenTelemetry_
 
-Last verified: 2026-05-04 (Logback 1.5.X / LogstashEncoder 9.X / Sentry SDK 8.X / OpenTelemetry Java 2.X).
+Last verified: 2026-06-22 (Logback 1.5.X / LogstashEncoder 9.X / Sentry SDK 9.x / OpenTelemetry Java 2.X).

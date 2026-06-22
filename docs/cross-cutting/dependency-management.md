@@ -48,7 +48,7 @@ Shared `extends` value:
 
 ```json
 "extends": [
-  "config:base",
+  "config:recommended",
   ":dependencyDashboard",
   ":semanticCommits",
   ":separateMajorReleases",
@@ -58,7 +58,7 @@ Shared `extends` value:
 
 | Preset | Effect |
 |---|---|
-| `config:base` | Renovate recommended defaults — lock file maintenance, SHA pinning for GitHub Actions |
+| `config:recommended` | Renovate recommended defaults — lock file maintenance, SHA pinning for GitHub Actions (replaces the deprecated `config:base`) |
 | `:dependencyDashboard` | Creates the dashboard issue |
 | `:semanticCommits` | PR titles prefixed `chore(deps):` / `fix(deps):` — compatible with webstack commitlint |
 | `:separateMajorReleases` | Major bumps get their own PRs, never grouped with minor/patch |
@@ -72,25 +72,25 @@ Grouping reduces PR noise by bundling related packages into a single PR. The rul
 
 ### Frontend groups
 
-| Group name | `matchPackagePatterns` / `matchPackageNames` |
+| Group name | `matchPackageNames` |
 |---|---|
-| Radix UI primitives | `^@radix-ui/` |
-| TanStack libraries | `^@tanstack/` |
+| Radix UI primitives | `@radix-ui/**` |
+| TanStack libraries | `@tanstack/**` |
 | Next.js framework | `next`, `eslint-config-next` |
 | React ecosystem | `react`, `react-dom`, `@types/react`, `@types/react-dom` |
-| ESLint ecosystem | `^eslint`, `^@typescript-eslint/` |
-| Testing stack | `^@testing-library/`, `^jest`, `^vitest` |
+| ESLint ecosystem | `eslint`, `eslint-**`, `@typescript-eslint/**` |
+| Testing stack | `@testing-library/**`, `jest`, `jest-**`, `vitest`, `vitest-**` |
 
-Each group is one PR. `matchPackagePatterns` accepts JavaScript-style regex; anchoring with `^` avoids false matches on packages that merely contain the string mid-name.
+Each group is one PR. `matchPackageNames` accepts exact names and case-insensitive glob patterns (`@radix-ui/**`); the `**` suffix matches the whole namespace without false matches on packages that merely contain the string mid-name.
 
 ### Backend groups
 
-| Group name | `matchPackagePatterns` |
+| Group name | `matchPackageNames` |
 |---|---|
-| Spring Boot BOM | `^org\.springframework\.boot`, `^org\.springframework(?!\.boot)`, `^io\.spring\.dependency-management` |
-| Kotlin libraries | `^org\.jetbrains\.kotlin` |
-| Kotest | `^io\.kotest` |
-| Mockk | `^io\.mockk` |
+| Spring Boot BOM | `org.springframework.**`, `io.spring.dependency-management` |
+| Kotlin libraries | `org.jetbrains.kotlin.**` |
+| Kotest | `io.kotest.**` |
+| Mockk | `io.mockk.**` |
 
 Spring Boot's BOM manages a large dependency graph under a single version. Grouping all `org.springframework.*` packages ensures the BOM and its managed dependencies upgrade together, which is the only safe upgrade path.
 
@@ -132,7 +132,7 @@ Auto-merge only proceeds when all required status checks pass. Configure via Git
 
 ### GitHub Actions SHA pins
 
-Renovate generates and maintains GitHub Actions SHA pins (`pinDigests: true` in `config:base`). These updates must never auto-merge: a malicious upstream SHA (supply chain compromise) could exfiltrate secrets from CI. Set `automerge: false` on `matchManagers: ["github-actions"]` in all three repos. See `docs/infrastructure/ci-cd.md` §Trivy for the 2026-03 supply chain incident context.
+Renovate generates and maintains GitHub Actions SHA pins (`pinDigests: true` in `config:recommended`). These updates must never auto-merge: a malicious upstream SHA (supply chain compromise) could exfiltrate secrets from CI. Set `automerge: false` on `matchManagers: ["github-actions"]` in all three repos. See `docs/infrastructure/ci-cd.md` §Trivy for the 2026-03 supply chain incident context.
 
 ---
 
@@ -166,7 +166,7 @@ The corresponding `matchStrings` pattern captures `datasource`, `depName`, and `
 
 ### Dockerfile FROM tags
 
-`config:base` includes the built-in `dockerfile` manager for standard locations. For non-standard Dockerfile paths, add a custom regex manager:
+`config:recommended` includes the built-in `dockerfile` manager for standard locations. For non-standard Dockerfile paths, add a custom regex manager:
 
 ```json
 {
@@ -189,7 +189,7 @@ Renovate integrates with GitHub Security Advisories (GHSA) to detect when a curr
 
 `prPriority: 10` floats security PRs to the top of the Renovate queue (default 0), ensuring the fix processes before queued routine updates.
 
-**How detection works:** Renovate reads the lock file (`pnpm-lock.yaml`, `gradle.lock`) to determine exact installed versions, checks them against the GitHub Advisory Database, and opens a PR to the minimum safe version (not necessarily latest). The PR body includes the CVE ID, CVSS score, and affected range.
+**How detection works:** Renovate reads the lock file (`pnpm-lock.yaml`, `gradle.lockfile`) to determine exact installed versions, checks them against the GitHub Advisory Database, and opens a PR to the minimum safe version (not necessarily latest). The PR body includes the CVE ID, CVSS score, and affected range.
 
 **Prerequisite:** Enable the **GitHub Dependency Graph** (Settings → Security → Dependency graph). For private repos, also enable **Dependabot alerts** — this activates the advisory feed Renovate reads; it does not require using Dependabot as the update bot.
 
@@ -209,12 +209,12 @@ Patch/digest auto-merge, `github-actions` pin rule, six frontend groups, and `ig
   { "matchUpdateTypes": ["patch", "digest"], "automerge": true, "automergeType": "pr", "automergeStrategy": "squash" },
   { "matchUpdateTypes": ["minor", "major"], "automerge": false },
   { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true, "labels": ["dependencies", "github-actions"] },
-  { "groupName": "Radix UI primitives", "matchPackagePatterns": ["^@radix-ui/"], "matchUpdateTypes": ["minor", "patch"] },
-  { "groupName": "TanStack libraries", "matchPackagePatterns": ["^@tanstack/"], "matchUpdateTypes": ["minor", "patch"] },
+  { "groupName": "Radix UI primitives", "matchPackageNames": ["@radix-ui/**"], "matchUpdateTypes": ["minor", "patch"] },
+  { "groupName": "TanStack libraries", "matchPackageNames": ["@tanstack/**"], "matchUpdateTypes": ["minor", "patch"] },
   { "groupName": "Next.js framework", "matchPackageNames": ["next", "eslint-config-next"], "matchUpdateTypes": ["minor", "patch"] },
   { "groupName": "React ecosystem", "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"], "matchUpdateTypes": ["minor", "patch"] },
-  { "groupName": "ESLint ecosystem", "matchPackagePatterns": ["^eslint", "^@typescript-eslint/"], "matchUpdateTypes": ["minor", "patch"] },
-  { "groupName": "Testing stack", "matchPackagePatterns": ["^@testing-library/", "^jest", "^vitest"], "matchUpdateTypes": ["minor", "patch"] }
+  { "groupName": "ESLint ecosystem", "matchPackageNames": ["eslint", "eslint-**", "@typescript-eslint/**"], "matchUpdateTypes": ["minor", "patch"] },
+  { "groupName": "Testing stack", "matchPackageNames": ["@testing-library/**", "jest", "jest-**", "vitest", "vitest-**"], "matchUpdateTypes": ["minor", "patch"] }
 ]
 ```
 
@@ -228,9 +228,9 @@ Same auto-merge policy as frontend. `ignorePaths` excludes jOOQ-generated source
   { "matchUpdateTypes": ["patch", "digest"], "automerge": true, "automergeType": "pr", "automergeStrategy": "squash" },
   { "matchUpdateTypes": ["minor", "major"], "automerge": false },
   { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true, "labels": ["dependencies", "github-actions"] },
-  { "groupName": "Spring Boot BOM", "matchPackagePatterns": ["^org\\.springframework\\.boot", "^org\\.springframework(?!\\.boot)", "^io\\.spring\\.dependency-management"], "matchUpdateTypes": ["minor", "patch"] },
-  { "groupName": "Kotlin libraries", "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"], "matchUpdateTypes": ["minor", "patch"] },
-  { "groupName": "Kotest", "matchPackagePatterns": ["^io\\.kotest"], "matchUpdateTypes": ["minor", "patch"] }
+  { "groupName": "Spring Boot BOM", "matchPackageNames": ["org.springframework.**", "io.spring.dependency-management"], "matchUpdateTypes": ["minor", "patch"] },
+  { "groupName": "Kotlin libraries", "matchPackageNames": ["org.jetbrains.kotlin.**"], "matchUpdateTypes": ["minor", "patch"] },
+  { "groupName": "Kotest", "matchPackageNames": ["io.kotest.**"], "matchUpdateTypes": ["minor", "patch"] }
 ]
 ```
 
@@ -263,7 +263,7 @@ Auto-merge is **disabled for all update types** — infrastructure changes must 
 
 **No groups — daily PR flood.** One PR per package update. A frontend repo with 80 dependencies produces 10–20 PRs per week, training engineers to ignore them. Group any ecosystem with three or more co-released packages.
 
-**`lockFileMaintenance: { "enabled": false }`.** Disabling it lets `pnpm-lock.yaml` and `gradle.lock` drift, so transitive-only security fixes are never applied. `config:base` enables it by default.
+**`lockFileMaintenance: { "enabled": false }`.** Disabling it lets `pnpm-lock.yaml` and `gradle.lockfile` drift, so transitive-only security fixes are never applied. `config:recommended` enables it by default.
 
 **Unpinned `latest` Docker tags.** Renovate cannot track `latest`. Use explicit tags (`node:22-alpine`) or SHA digests.
 
@@ -280,4 +280,4 @@ Auto-merge is **disabled for all update types** — infrastructure changes must 
 - **Renovate GitHub App installation guide:** https://github.com/apps/renovate — _authoritative_
 - **Mend Renovate community discussion — monorepo presets:** https://github.com/renovatebot/renovate/discussions — _community: renovatebot_
 
-Last verified: 2026-05-04 (Renovate 39.X / GitHub App).
+Last verified: 2026-06-22 (Renovate 39.X / GitHub App).

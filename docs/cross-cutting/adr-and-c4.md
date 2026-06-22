@@ -97,7 +97,8 @@ The widest view. Shows your system as a single box surrounded by users and exter
 
 ```plantuml
 @startuml SystemContext
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+' Pin to a C4-PlantUML release tag, not master, so diagrams render reproducibly (verify latest tag).
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.10.0/C4_Context.puml
 
 Person(user, "Student", "Uses the platform")
 System(app, "Pulley Platform", "Spring Boot + Next.js")
@@ -118,7 +119,8 @@ Zooms into a single container. For the Spring Boot backend, each Modulith module
 
 ```plantuml
 @startuml Component
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+' Pin to a C4-PlantUML release tag, not master (verify latest tag).
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.10.0/C4_Component.puml
 
 Container_Boundary(be, "Spring Boot API") {
     Component(billing, "Billing Module", "Spring Modulith", "Invoice lifecycle, payments")
@@ -244,7 +246,7 @@ In `.github/workflows/pr.yml`:
   run: ./gradlew test --tests "*DocumentationTest"
 
 - name: Upload diagram artifacts
-  uses: actions/upload-artifact@v4
+  uses: actions/upload-artifact@<full-commit-sha>  # v4 — pin to full SHA (repo pinning rule, OWASP A08)
   with:
     name: spring-modulith-docs
     path: build/spring-modulith-docs/
@@ -271,12 +273,12 @@ Render the generated `.puml` files to SVG and post them as a PR comment so revie
 
 ```yaml
 - name: Render PlantUML diagrams
-  uses: cloudbees/plantuml-github-action@master
+  uses: cloudbees/plantuml-github-action@<full-commit-sha>  # pin to full SHA — never @master (repo pinning rule)
   with:
     args: -tsvg build/spring-modulith-docs/*.puml
 
 - name: Comment diagrams on PR
-  uses: actions/github-script@v7
+  uses: actions/github-script@<full-commit-sha>  # v7 — pin to full SHA (repo pinning rule)
   if: |
     github.event_name == 'pull_request' &&
     github.event.pull_request.head.repo.full_name == github.repository
@@ -325,4 +327,4 @@ Requires `issues: write` on `GITHUB_TOKEN`. The `head.repo` guard skips fork PRs
 - **Michael Nygard — "Documenting Architecture Decisions" (2011):** https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions — _community: Cognitect_
 - **C4-PlantUML stdlib:** https://github.com/plantuml-stdlib/C4-PlantUML — _community: plantuml-stdlib_
 
-Last verified: 2026-05-04 (Spring Modulith 2.X / C4 model / ADR / PlantUML).
+Last verified: 2026-06-22 (Spring Modulith 2.X / C4 model / ADR / PlantUML).

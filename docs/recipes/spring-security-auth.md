@@ -73,6 +73,7 @@ dependencies {
     // Note: renamed from spring-boot-starter-oauth2-resource-server in Spring Boot 4.
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
     // Nimbus JOSE for issuing tokens (decoder is provided by the starter above):
+    // (verify the version the resource-server starter pulls on Boot 4 — Nimbus 9.x vs 10.x — and align this pin to it)
     implementation("com.nimbusds:nimbus-jose-jwt:9.40")
 
     // BCrypt for password hashing comes with spring-security-crypto, already pulled in by
@@ -109,7 +110,7 @@ The `BCryptPasswordEncoder` from `org.springframework.security.crypto.bcrypt` sh
 
 ## JWT issuance & verification
 
-Issue short-lived access tokens (15 min) + longer-lived refresh tokens (14 days). Use HS256 with a single shared secret (`JWT_SIGNING_SECRET` env var, 32+ bytes random) for the simple path, or RS256 with a key pair if multiple services verify the same token.
+Issue short-lived access tokens (15 min) + longer-lived refresh tokens (14 days). **webstack defaults to RS256** (asymmetric): the BE signs with the private key, and the Next.js middleware verifies access tokens with only the **public** key (`importSPKI(process.env.JWT_PUBLIC_KEY, 'RS256')`, `algorithms: ['RS256']` — see `docs/frontend/auth-frontend.md`). Because the FE is a second party that verifies the same token, a shared HS256 secret will not do — the FE must never hold a signing secret. Use HS256 with a single shared secret (`JWT_SIGNING_SECRET` env var, 32+ bytes random) only when the BE is the sole party that ever verifies the token (no FE-side verification). The example below shows the HS256 single-service path; for the default RS256 path, swap `MACSigner`/`MACVerifier` for `RSASSASigner`/`RSASSAVerifier` and `JWSAlgorithm.RS256`, load the private key from `app.env`, and publish only the public key to the FE.
 
 ```kotlin
 // auth/application/token/TokenIssuer.kt — port
@@ -276,7 +277,7 @@ Infrastructure layer (KoTest + Spring slice + Testcontainers):
 - [ ] Rate-limit `/api/auth/login` (Spring's `Bucket4j` integration is the easy path) — 5 attempts per email per 5 minutes.
 - [ ] CORS whitelist limits the FE origin only — no `*`.
 - [ ] CSRF disabled because the API is stateless JWT-bearer; if any cookie-based session is later added, re-enable.
-- [ ] HTTPS enforced in production (Spring's `requireSecure` or upstream LB termination).
+- [ ] HTTPS enforced in production (Spring's `requireSecure`, or upstream Caddy TLS termination on 443 → `localhost:8080`).
 - [ ] Refresh token cookie: `HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/auth/refresh`.
 - [ ] Account lockout after N failed attempts (or progressive delay).
 - [ ] Email verification before allowing login (if requirements need it) — emit a `UserRegistered` event, an email-sender module subscribes and sends the verification link.
@@ -290,4 +291,4 @@ Infrastructure layer (KoTest + Spring slice + Testcontainers):
 - OWASP Authentication Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
 - OWASP JWT Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html
 
-Last verified: 2026-05-04 (Spring Boot 4.0.X / Spring Security 7.X / Nimbus JOSE 9.X / BCrypt).
+Last verified: 2026-06-22 (Spring Boot 4.0.X / Spring Security 7.X / Nimbus JOSE 9.X / BCrypt).

@@ -9,7 +9,7 @@ Step-by-step activation guide — each step produces a concrete artefact (accoun
 
 | Tool | Signal | Target |
 |---|---|---|
-| **Sentry** (SDK 8.X) | JS + JVM exceptions | Vercel FE + OCI BE |
+| **Sentry** (SDK 9.x) | JS + JVM exceptions | Vercel FE + OCI BE |
 | **Grafana Cloud Free** (LGTM) | Metrics + traces + logs via OTLP | OCI BE |
 | **UptimeRobot Free** | External HTTP uptime | FE + BE public URLs |
 
@@ -54,12 +54,14 @@ In `<backend>/build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    implementation("com.grafana:grafana-opentelemetry-java:2.x")   // OTel + Grafana Cloud wiring
-    implementation("io.micrometer:micrometer-registry-otlp")       // metrics OTLP export
+    implementation("com.grafana:grafana-opentelemetry-java:2.12.0") // OTel → Grafana Cloud: traces + logs (verify latest 2.x)
+    implementation("io.micrometer:micrometer-registry-otlp")        // metrics OTLP export (version BOM-managed by Spring Boot)
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")  // JSON logs
-    implementation("io.sentry:sentry-spring-boot-starter-jakarta:8.+")   // Sentry JVM
+    implementation("io.sentry:sentry-spring-boot-starter-jakarta:9.0.0") // Sentry JVM (SDK 9.x — verify latest)
 }
 ```
+
+> **One metrics export path only.** Both `grafana-opentelemetry-java` and `micrometer-registry-otlp` can export metrics; running both **double-counts every series** and burns the Grafana Cloud Free 10k-series budget. webstack uses **Micrometer (`micrometer-registry-otlp`) for metrics** (so the Spring metric names like `http_server_requests_seconds_count` used in Step 9 stay intact) and the Grafana OTel distribution for **traces + logs only** — disable its metric exporter with `otel.metrics.exporter=none` (Step 5). Pick the other way around if you prefer OTel-native metric names, but never export metrics from both.
 
 Run `./gradlew dependencies` to confirm resolution.
 
@@ -87,6 +89,13 @@ management:
     url: "${GRAFANA_OTLP_ENDPOINT}/v1/metrics"
     step: 60s
   observations.annotations.enabled: true
+```
+
+Disable the Grafana/OTel distribution's own metric exporter so metrics flow through Micrometer only (see the one-path note in Step 4). Set it as an OTel env var in the systemd `app.env` (it is an OTel SDK property, not an `application.yml` key):
+
+```bash
+# in the systemd app.env (and locally when running the distribution)
+OTEL_METRICS_EXPORTER=none      # traces + logs still export; metrics come from micrometer-registry-otlp
 ```
 
 Create `<backend>/src/main/resources/logback-spring.xml` — JSON appender with `LogstashEncoder` including `trace_id` and `span_id` MDC keys for non-local profiles; plain pattern appender for `local` profile. Full template: see `docs/backend/observability.md` §Logs.
@@ -183,4 +192,4 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that observabili
 - **Grafana OpenTelemetry Distribution for Java:** https://github.com/grafana/grafana-opentelemetry-java — _community: Grafana Labs_
 - **UptimeRobot documentation:** https://uptimerobot.com/help/ — _authoritative_
 
-Last verified: 2026-05-04 (Sentry SDK 8.X / Grafana Cloud Free / UptimeRobot Free / Spring Boot 4.0.X / Next.js 16.X).
+Last verified: 2026-06-22 (Sentry SDK 9.x / Grafana Cloud Free / UptimeRobot Free / Spring Boot 4.0.X / Next.js 16.X).

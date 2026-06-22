@@ -5,7 +5,7 @@
 
 ## What this recipe activates
 
-**next-intl 3.X** — path-prefix locale routing (`/en/dashboard`, `/ko/dashboard`), Server + Client translations, ICU MessageFormat. All locale logic runs in middleware and the `[locale]` segment.
+**next-intl 4.X** — path-prefix locale routing (`/en/dashboard`, `/ko/dashboard`), Server + Client translations, ICU MessageFormat. All locale logic runs in middleware and the `[locale]` segment. (The `hasLocale` / `requestLocale` APIs used below are next-intl 4.x.)
 
 ## Pre-conditions
 
@@ -47,7 +47,7 @@ import { routing } from './src/i18n/routing'
 export default createMiddleware(routing)
 
 export const config = {
-  matcher: '/((?!api|trpc|_next|_vercel|.*\\..*).*)',
+  matcher: '/((?!api|_next|_vercel|.*\\..*).*)',
 }
 ```
 
@@ -252,4 +252,4 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that i18n is act
 - **next-intl routing API:** https://next-intl.dev/docs/routing — _authoritative_
 - **Tailwind CSS logical properties:** https://tailwindcss.com/docs/margin#using-logical-properties — _authoritative_
 
-Last verified: 2026-05-04 (next-intl 3.X / Next.js 16.X).
+Last verified: 2026-06-22 (next-intl 4.X / Next.js 16.X).

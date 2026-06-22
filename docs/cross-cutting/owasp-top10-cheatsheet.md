@@ -36,7 +36,7 @@ Layout-level server-side session checks — hidden routes are not secured. `midd
 
 ### Infra defense
 
-Port 8080 on a private OCI subnet; only the LB reaches it. Postgres app user: DML only, no DDL, no superuser.
+App listens on `localhost:8080` only — never internet-exposed; Caddy on the public subnet terminates TLS on 443 and proxies to it, so the app port is unreachable from outside the VM. Postgres app user: DML only, no DDL, no superuser.
 
 ### Where in webstack
 
@@ -64,7 +64,7 @@ Fetch wrapper enforces `https://`. Access tokens in memory only — never `local
 
 ### Infra defense
 
-TLS at OCI LB (Let's Encrypt / OCI Certificate Service). OCI Block Volumes AES-256 at rest. DB password from OCI Vault.
+TLS terminated by Caddy on 443 (automatic Let's Encrypt certificates + renewal). OCI Block Volumes AES-256 at rest. DB password and `FIELD_ENCRYPTION_KEY` live in the systemd `app.env` file (mode 600, owner `ubuntu`), injected as env vars to the service — not in source, not in OCI Vault.
 
 ### Where in webstack
 
@@ -128,7 +128,7 @@ OCI security groups default to deny; new ingress rules require explicit review. 
 
 - `docs/backend/security-beyond-auth.md` — rate limiting, Bucket4j.
 - `shared/methodologies/ddd.md` — aggregate invariants.
-- `docs/cross-cutting/adr-and-c4.md` (pending) — ADR, C4 threat surface.
+- `docs/cross-cutting/adr-and-c4.md` — ADR, C4 threat surface.
 
 ---
 
@@ -151,7 +151,7 @@ Unnecessary features enabled (Actuator on public port), default credentials unch
 
 ### Infra defense
 
-OCI security lists: allowlist rules only; no `0.0.0.0/0` except 443 inbound to LB. Object storage private by default. SSH key-only.
+OCI security list / NSG: allowlist rules only; no `0.0.0.0/0` except 443 inbound to the VM (Caddy). 8080 is never opened — it binds to `localhost`. SSH key-only (optionally restricted to a Bastion / known CIDRs). Object storage private by default.
 
 ### Where in webstack
 
@@ -182,7 +182,7 @@ Trivy in CI on every build and nightly — CRITICAL CVEs block deployment. CodeQ
 
 ### Where in webstack
 
-- `docs/cross-cutting/dependency-management.md` (pending) — Renovate, `pnpm audit`, Gradle plugins.
+- `docs/cross-cutting/dependency-management.md` — Renovate, `pnpm audit`, Gradle plugins.
 - `docs/infrastructure/ci-cd.md` — CodeQL, Trivy, scans.
 
 ---
@@ -207,7 +207,7 @@ Login form: same error for "user not found" and "wrong password" (prevents enume
 
 ### Infra defense
 
-`JWT_SIGNING_SECRET` in OCI Vault; injected as a systemd env var by the deploy step.
+`JWT_SIGNING_SECRET` (or the RS256 private key, if asymmetric) lives in the systemd `app.env` file (mode 600, owner `ubuntu`), injected as an env var to `webstack-app.service` by the deploy step — not in source, not in OCI Vault.
 
 ### Where in webstack
 
@@ -268,7 +268,7 @@ OCI Logging via Logging Agent; 30-day retention. OCI Monitoring Alarms on error-
 ### Where in webstack
 
 - `docs/backend/observability.md` — Micrometer, tracing, OCI Monitoring.
-- `docs/cross-cutting/logging-strategy.md` (pending) — structured logging, MDC, correlation ID.
+- `docs/cross-cutting/logging-strategy.md` — structured logging, MDC, correlation ID.
 
 ---
 
@@ -310,7 +310,7 @@ OCI Security List: block egress to `169.254.0.0/16`. OCI IMDSv2: metadata reques
 
 **Logging without monitoring.** Structured logs without OCI Alarms or alert rules are compliance theater. `WARN` spikes on `LoginResult.Invalid` signal credential stuffing; `AccessDeniedException` clusters signal enumeration.
 
-**Hardcoded secrets.** Rotate and revoke immediately; audit repository history. Use env vars and OCI Vault.
+**Hardcoded secrets.** Rotate and revoke immediately; audit repository history. Keep secrets in env files / the systemd `app.env` (mode 600) and `TF_VAR_*` for tofu — never in source.
 
 **Ignoring Renovate PRs.** Known CVEs stay in production for weeks. Merge patch/minor with green CI within 48 hours.
 
@@ -327,4 +327,4 @@ OCI Security List: block egress to `169.254.0.0/16`. OCI IMDSv2: metadata reques
 - **Spring Security Method Security:** https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html — _authoritative: Spring_
 - **DOMPurify:** https://github.com/cure53/DOMPurify — _community: cure53_
 
-Last verified: 2026-05-04 (OWASP Top 10:2021 / Next.js 16.X / Spring Boot 4.0.X / Postgres 16.X).
+Last verified: 2026-06-22 (OWASP Top 10:2021 / Next.js 16.X / Spring Boot 4.0.X / Postgres 16.X).

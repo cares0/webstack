@@ -35,19 +35,19 @@ Create `<frontend>/renovate.json`:
 ```json
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
   "ignorePaths": ["**/node_modules/**", "**/src/shared/api/generated/**"],
   "vulnerabilityAlerts": { "schedule": ["at any time"], "prPriority": 10, "automerge": false },
   "packageRules": [
     { "matchUpdateTypes": ["patch", "digest"], "automerge": true, "automergeType": "pr", "automergeStrategy": "squash" },
     { "matchUpdateTypes": ["minor", "major"], "automerge": false },
-    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true },
-    { "groupName": "Radix UI primitives", "matchPackagePatterns": ["^@radix-ui/"], "matchUpdateTypes": ["minor", "patch"] },
-    { "groupName": "TanStack libraries", "matchPackagePatterns": ["^@tanstack/"], "matchUpdateTypes": ["minor", "patch"] },
+    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true, "labels": ["dependencies", "github-actions"] },
+    { "groupName": "Radix UI primitives", "matchPackageNames": ["@radix-ui/**"], "matchUpdateTypes": ["minor", "patch"] },
+    { "groupName": "TanStack libraries", "matchPackageNames": ["@tanstack/**"], "matchUpdateTypes": ["minor", "patch"] },
     { "groupName": "Next.js framework", "matchPackageNames": ["next", "eslint-config-next"], "matchUpdateTypes": ["minor", "patch"] },
     { "groupName": "React ecosystem", "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"], "matchUpdateTypes": ["minor", "patch"] },
-    { "groupName": "ESLint ecosystem", "matchPackagePatterns": ["^eslint", "^@typescript-eslint/"], "matchUpdateTypes": ["minor", "patch"] },
-    { "groupName": "Testing stack", "matchPackagePatterns": ["^@testing-library/", "^jest", "^vitest"], "matchUpdateTypes": ["minor", "patch"] }
+    { "groupName": "ESLint ecosystem", "matchPackageNames": ["eslint", "eslint-**", "@typescript-eslint/**"], "matchUpdateTypes": ["minor", "patch"] },
+    { "groupName": "Testing stack", "matchPackageNames": ["@testing-library/**", "jest", "jest-**", "vitest", "vitest-**"], "matchUpdateTypes": ["minor", "patch"] }
   ]
 }
 ```
@@ -61,16 +61,16 @@ Create `<backend>/renovate.json`. The built-in `gradle` manager reads `gradle/li
 ```json
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
   "ignorePaths": ["**/build/generated-src/**"],
   "vulnerabilityAlerts": { "schedule": ["at any time"], "prPriority": 10, "automerge": false },
   "packageRules": [
     { "matchUpdateTypes": ["patch", "digest"], "automerge": true, "automergeType": "pr", "automergeStrategy": "squash" },
     { "matchUpdateTypes": ["minor", "major"], "automerge": false },
-    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true },
-    { "groupName": "Spring Boot BOM", "matchPackagePatterns": ["^org\\.springframework", "^io\\.spring\\.dependency-management"], "matchUpdateTypes": ["minor", "patch"] },
-    { "groupName": "Kotlin libraries", "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"], "matchUpdateTypes": ["minor", "patch"] },
-    { "groupName": "Kotest", "matchPackagePatterns": ["^io\\.kotest"], "matchUpdateTypes": ["minor", "patch"] }
+    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true, "labels": ["dependencies", "github-actions"] },
+    { "groupName": "Spring Boot BOM", "matchPackageNames": ["org.springframework.**", "io.spring.dependency-management"], "matchUpdateTypes": ["minor", "patch"] },
+    { "groupName": "Kotlin libraries", "matchPackageNames": ["org.jetbrains.kotlin.**"], "matchUpdateTypes": ["minor", "patch"] },
+    { "groupName": "Kotest", "matchPackageNames": ["io.kotest.**"], "matchUpdateTypes": ["minor", "patch"] }
   ]
 }
 ```
@@ -84,12 +84,12 @@ Create `<infrastructure>/renovate.json`. **All update types have `automerge: fal
 ```json
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
+  "extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits", ":separateMajorReleases", "schedule:nonOfficeHours"],
   "vulnerabilityAlerts": { "schedule": ["at any time"], "prPriority": 10, "automerge": false },
   "packageRules": [
     { "matchUpdateTypes": ["patch", "digest"], "automerge": false, "labels": ["infra-patch"] },
     { "matchUpdateTypes": ["minor", "major"], "automerge": false, "labels": ["infra-minor", "needs-review"] },
-    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true },
+    { "matchManagers": ["github-actions"], "automerge": false, "pinDigests": true, "labels": ["dependencies", "github-actions"] },
     { "groupName": "OpenTofu providers", "matchManagers": ["terraform"], "matchUpdateTypes": ["minor", "patch"] }
   ],
   "customManagers": [{
@@ -156,4 +156,4 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that Renovate is
 - **Renovate regex custom manager:** https://docs.renovatebot.com/modules/manager/regex/ — _authoritative_
 - **Renovate configuration options reference:** https://docs.renovatebot.com/configuration-options/ — _authoritative_
 
-Last verified: 2026-05-04 (Renovate 39.X / GitHub App).
+Last verified: 2026-06-22 (Renovate 39.X / GitHub App).

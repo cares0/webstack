@@ -9,7 +9,8 @@
 |---|---|
 | **git-cliff 2.X** | Generates `CHANGELOG.md` per repo from Conventional Commits history |
 | **GitHub Actions release workflow** | Tag-push trigger → CHANGELOG update → GitHub Release creation |
-| **Vercel Rolling Releases** | Canary traffic splitting (10% → 100%) on every FE tag push |
+| **Vercel deploy + Instant Rollback** (Hobby default) | Push to the production branch auto-deploys; roll back instantly to a previous deployment from the dashboard |
+| **Vercel Rolling Releases** (requires Vercel **Pro**/Enterprise) | Optional upgrade — canary traffic splitting (10% → 100%) on every FE tag push; **not available on Hobby** |
 | **commitlint via lefthook** | `commit-msg` hook enforces Conventional Commits format |
 | **3-repo version sync** | `manifest.yaml` tracks the coordinated version triplet |
 
@@ -33,6 +34,8 @@ curl -sSL "https://github.com/orhun/git-cliff/releases/download/v${V}/git-cliff-
 ```
 
 Verify: `git-cliff --version`. CI runners use Option C inside the release workflow (Step 4).
+
+> The `curl … | tar` pipe (Option C) downloads and extracts the release tarball without verifying a checksum — the bytes are trusted on TLS alone. For a supply-chain-hardened install, prefer Option A/B (Cargo/Homebrew), or download the release asset and its published checksum separately and verify (`sha256sum -c`) before extracting. (verify git-cliff publishes a checksum/signature for the pinned version)
 
 ## Step 2 — `cliff.toml`
 
@@ -112,7 +115,8 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Pin actions to a full commit SHA (repo pinning rule, OWASP A08); the version comment lets Renovate bump the SHA.
+      - uses: actions/checkout@<full-commit-sha>  # v4
         with:
           fetch-depth: 0          # full history required by git-cliff
 
@@ -132,7 +136,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@<full-commit-sha>  # v2
         with:
           body_path: CHANGELOG.md
           make_latest: true
@@ -140,12 +144,16 @@ jobs:
 
 Commit `release.yml` to `main` in all three repos before pushing the first version tag. Add a `github-actions[bot]` branch protection bypass (or use a PAT as `GH_RELEASE_TOKEN`) if `main` has push restrictions.
 
-## Step 5 — Vercel Rolling Releases activate
+## Step 5 — Vercel deploy strategy
+
+**Default (Hobby):** push to the production branch and Vercel auto-deploys; if a release misbehaves, use **Instant Rollback** (Vercel Dashboard → [Project] → Deployments → pick a healthy prior deployment → **Promote to Production**) to revert immediately. No extra configuration is required on Hobby. Enable **Skew Protection** if available on your plan (Project Settings → Deployment Protection → Skew Protection) so users mid-deploy don't get a new HTML page paired with old API responses.
+
+**Optional — Rolling Releases (requires Vercel Pro/Enterprise; not available on Hobby):** for canary traffic splitting, upgrade the project's plan, then:
 
 1. **Vercel Dashboard → [Project] → Project Settings → Build & Deployment → Rolling Releases → On.**
 2. Configure two stages: Stage 1 at **10%** (automatic), Stage 2 at **100%** (manual Advance).
 3. **Save.**
-4. Enable **Skew Protection**: same Settings page → Deployment Protection → Skew Protection → On. Without it, users mid-rollout may receive a new HTML page paired with old API responses.
+4. Enable **Skew Protection**: same Settings page → Deployment Protection → Skew Protection → On.
 
 Once enabled, any production-promoting action enters stage 1 at 10% automatically. Advance or abort via the **Rolling Releases** banner on the Deployments tab, or programmatically via `mcp__claude_ai_Vercel__*` tools during `/webstack:deploy`.
 
@@ -181,9 +189,8 @@ Expected outcomes after all three tags are pushed:
 - GitHub Actions release workflows green for all three repos.
 - `CHANGELOG.md` on `main` updated with Features / Bug Fixes sections.
 - GitHub Releases page shows `v0.1.0` with CHANGELOG body.
-- Vercel Deployments shows **Canary** badge at 10%; Observability → Rolling Releases shows metrics comparison.
-
-After a minimum 15-minute canary window, click **Advance** to promote to 100%.
+- **Hobby:** Vercel Deployments shows the new production deployment live (push→auto-deploy). If anything is wrong, **Instant Rollback** to the prior deployment.
+- **Pro/Enterprise (Rolling Releases enabled):** Vercel Deployments shows a **Canary** badge at 10%; Observability → Rolling Releases shows the metrics comparison. After a minimum 15-minute canary window, click **Advance** to promote to 100%.
 
 ## Step 8 — manifest flag ON
 
@@ -211,4 +218,4 @@ This flag signals to `/webstack:feature` and `/webstack:deploy` that release man
 - **Vercel Rolling Releases:** https://vercel.com/docs/rolling-releases — _authoritative_
 - **Conventional Commits 1.0 specification:** https://www.conventionalcommits.org/en/v1.0.0/ — _authoritative_
 
-Last verified: 2026-05-04 (git-cliff 2.X / Vercel Rolling Releases GA / Conventional Commits 1.0).
+Last verified: 2026-06-22 (git-cliff 2.X / Vercel Rolling Releases — Pro/Enterprise only / Conventional Commits 1.0).

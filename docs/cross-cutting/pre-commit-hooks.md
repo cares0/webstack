@@ -312,7 +312,7 @@ Rule severity:
 
 `subject-case` is a warning (`1`) rather than an error (`2`) because the rule does not understand proper nouns. For example, `feat(api): add OAuth2 provider` would fail an error-level lower-case rule even though "OAuth2" is correct.
 
-For ES module compatibility (Node 24+), either use `commitlint.config.mjs` as the filename, or ensure `package.json` contains `"type": "module"`. The config above uses `export default` syntax, which requires one of these conditions.
+For ES module compatibility, either use `commitlint.config.mjs` as the filename, or ensure `package.json` contains `"type": "module"`. The config above uses `export default` syntax, which requires one of these conditions — commitlint has supported ESM config this way since v18 (no special Node version is required beyond a current LTS).
 
 ### Scopes
 
@@ -394,4 +394,4 @@ Run `lefthook install` once from the **main working tree** after cloning, not fr
 - **webstack `shared/conventions/conventional-commits.md`:** internal — _authoritative; bundled with this plugin_
 - **jlleitschuh/ktlint-gradle plugin:** https://github.com/jlleitschuh/ktlint-gradle — _community: jlleitschuh_
 
-Last verified: 2026-05-04 (lefthook 1.X / commitlint 19.X / ktlint 1.X).
+Last verified: 2026-06-22 (lefthook 1.X / commitlint 19.X / ktlint 1.X).

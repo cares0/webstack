@@ -749,7 +749,7 @@ The `contract-drift-detective` agent verifies each version group independently v
 
 ### springdoc auto-exposure
 
-springdoc-openapi 2.x reads the live Spring MVC routing and Swagger/OpenAPI annotations to emit an OpenAPI 3.1 document at `/v3/api-docs`. Enable it:
+springdoc-openapi 3.0.x (the Spring Boot 4 line) reads the live Spring MVC routing and Swagger/OpenAPI annotations to emit an OpenAPI 3.1 document at `/v3/api-docs`. Enable it:
 
 ```yaml
 # application.yml
@@ -770,7 +770,8 @@ springdoc:
 Gradle dependency:
 
 ```kotlin
-implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3")
+// Spring Boot 4 requires the springdoc 3.0.x line (2.x — incl. 2.8.x — targets Boot 3 only).
+implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0")
 ```
 
 springdoc reads `@RestController`, `@RequestMapping`, `@Operation`, `@Parameter`, `@ApiResponse`, and `@Schema` annotations. Keep annotations minimal — the contract YAML is the source of truth. Use `@Operation` only to add `deprecated = true` or a summary that differs from the contract; avoid duplicating schema definitions already in the YAML.
@@ -869,4 +870,4 @@ Publishing an `ETag` header on `GET` responses implies to clients that condition
 - **Zalando RESTful API Guidelines:** https://opensource.zalando.com/restful-api-guidelines/ — _community: Zalando Engineering_
 - **RFC 8288 — Web Linking (IETF, October 2017):** https://datatracker.ietf.org/doc/html/rfc8288 — _authoritative_
 
-Last verified: 2026-05-04 (RFC 9110 / OpenAPI 3.1 / Spring Boot 4.0.X / springdoc 2.X).
+Last verified: 2026-06-22 (RFC 9110 / OpenAPI 3.1 / Spring Boot 4.0.X / springdoc 3.0.X).
