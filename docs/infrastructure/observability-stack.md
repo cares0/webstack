@@ -41,7 +41,9 @@ Paired documents:
 
 ## Grafana Cloud Free LGTM (Loki/Tempo/Mimir)
 
-### Free tier limits (verified 2026-05)
+### Free tier limits (verify against current Grafana Cloud pricing)
+
+> Grafana revises the free-tier numbers periodically — re-verify the series/ingest/retention limits and user count at https://grafana.com/pricing/ before relying on them for a provisioning decision.
 
 | Signal | Ingest limit | Retention |
 |---|---|---|
@@ -183,7 +185,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 pnpm add @vercel/analytics @vercel/speed-insights
 ```
 
-Enable in the Vercel dashboard: **Project → Analytics** (toggle on). Speed Insights measures Core Web Vitals (LCP, FID/INP, CLS) from real user sessions.
+Enable in the Vercel dashboard: **Project → Analytics** (toggle on). Speed Insights measures Core Web Vitals (LCP, INP, CLS) from real user sessions (INP replaced FID as a Core Web Vital in 2024).
 
 **Hobby tier limits:** Vercel's Web Analytics data is available for the last 30 days of traffic on the Hobby plan. Custom events via `track()` are supported. There is no hard events-per-month limit shown in the public docs; the 30-day rolling window applies. Speed Insights is available on all plans with no explicit monthly cap for basic vitals.
 
@@ -290,7 +292,9 @@ Import the Grafana Labs community dashboard **Spring Boot 2.1 / 3.x Statistics**
 2. Select your Mimir data source for the Prometheus data source field.
 3. Save.
 
-This dashboard provides HTTP request rate, error rate, p50/p95/p99 latency, JVM heap, GC pauses, thread pools, and HikariCP connection pool metrics out of the box — no custom configuration needed beyond the standard Spring Boot Actuator + Micrometer OTLP setup.
+This dashboard provides HTTP request rate, error rate, p50/p95/p99 latency, JVM heap, GC pauses, thread pools, and HikariCP connection pool metrics out of the box.
+
+> **Metric-name caveat:** This community dashboard expects **Prometheus-style** metric names (underscores, e.g. `http_server_requests_seconds_count`, `jvm_memory_used_bytes`). If you export over OTLP without Prometheus-style normalization, the series arrive with **dot-names** (e.g. `http.server.requests`, `jvm.memory.used`) and the dashboard panels render empty. Either enable Prometheus-compatible naming on the export path (Micrometer/OTLP `…​translation`/normalization, verify the exact setting for your pipeline) or edit the panel queries to the dot-name form. The custom RED/USE snippets below assume the Prometheus-style names too.
 
 ### Custom RED dashboard JSON snippet
 
@@ -400,7 +404,7 @@ Alert at **warning** in Slack `#alerts`; alert at **critical** in Slack `#incide
 
 ## Sentry MCP integration
 
-The Sentry MCP server (`https://mcp.sentry.dev/mcp`) is available to all Sentry users (cloud, including free) via OAuth. It exposes 19 tools for issue triage, event inspection, release management, and Seer AI root cause analysis.
+The Sentry MCP server (`https://mcp.sentry.dev/mcp`) is available to all Sentry users (cloud, including free) via OAuth. It exposes a set of tools (~19 as last counted — verify the current count/capabilities against the Sentry MCP docs) for issue triage, event inspection, release management, and Seer AI root cause analysis.
 
 ### Adding to Claude Code
 
@@ -503,4 +507,4 @@ Revenue-generating production traffic?
 - **Vercel Web Analytics docs:** https://vercel.com/docs/analytics — _community: Vercel-affiliated_
 - **Grafana Labs community dashboard — Spring Boot 3.x Statistics (ID 11378):** https://grafana.com/grafana/dashboards/11378 — _community: Grafana Labs dashboard repo_
 
-Last verified: 2026-05-04 (Grafana Cloud Free 2026 / Sentry Free / UptimeRobot Free / OpenTelemetry Java 2.X).
+Last verified: 2026-06-22 (Grafana Cloud Free 2026 / Sentry Free / UptimeRobot Free / OpenTelemetry Java 2.X).

@@ -8,11 +8,11 @@ webstack's Supabase dependency is **Postgres only**. Supabase happens to bundle 
 
 The choice of Supabase as the Postgres host is driven by:
 
-- **Free tier**: 500 MB database, daily backups, no card surprises. Sufficient for development, MVP, and early production traffic.
-- **Operational simplicity**: zero-ops Postgres with a UI for SQL inspection, no backup scripts to maintain, no `pg_upgrade` to run.
+- **Free tier**: 500 MB database, no card surprises. Sufficient for development, MVP, and early production traffic. (Note: the Free tier has **no managed/automatic backups** — see [Free tier limits](#free-tier-limits); webstack's own daily `pg_dump` cron is the only backup mechanism, documented in `docs/infrastructure/backup-and-recovery.md`.)
+- **Operational simplicity**: zero-ops Postgres with a UI for SQL inspection, no `pg_upgrade` to run.
 - **Standard Postgres**: extensions (pgvector, pg_cron, postgis) available; everything that works in Postgres 15+ works here. No proprietary lock-in at the SQL level — the data and migrations are portable.
 
-The Supabase-specific layer used by webstack is small: project provisioning via the IaC provider, connection strings exposed by the dashboard, and the daily backup behavior. Everything else is plain Postgres.
+The Supabase-specific layer used by webstack is small: project provisioning via the IaC provider and the connection strings exposed by the dashboard. Backups are not a managed Supabase feature on Free — webstack supplies its own daily `pg_dump` cron (see `docs/infrastructure/backup-and-recovery.md`). Everything else is plain Postgres.
 
 ## Free tier limits
 
@@ -22,7 +22,7 @@ The free tier as of 2026:
 - **500 MB database** per project (Postgres data, indexes, WAL — usable space is closer to 300 MB once indexes and WAL are accounted for).
 - **5 GB egress per month**.
 - **Project pauses after 7 consecutive days of inactivity.** Auto-resumes on next request (cold-start latency ~30 seconds).
-- **Daily backups** (point-in-time recovery is Pro-only).
+- **No managed/automatic backups.** Managed daily backups and point-in-time recovery are **Pro+ only**. On Free, the only backup mechanism is webstack's own daily `pg_dump` cron → OCI Object Storage (see `docs/infrastructure/backup-and-recovery.md`).
 
 Verify current tier numbers at https://supabase.com/pricing — limits change quarterly.
 
@@ -63,11 +63,13 @@ The **Database** settings page exposes multiple connection strings:
 - **Pooled connection** (port 6543, PgBouncer transaction mode) — recommended for application traffic, especially with serverless / many short connections. **Use this for the Spring Boot app.**
 - **Pooled connection** (port 6543, PgBouncer session mode) — when you need session-level features (prepared statements, advisory locks).
 
-Format:
+**Copy these strings verbatim from the dashboard (Settings → Database) — do not construct the host yourself.** The pooler hostname has a dynamic prefix (e.g., `aws-0-`, `aws-1-`, … varies by project/region/provider) and must not be string-built. The shape is roughly:
 
 ```text
-postgresql://postgres.<project_ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+postgresql://postgres.<project_ref>:<password>@<pooler-host-from-dashboard>:6543/postgres
 ```
+
+where `<pooler-host-from-dashboard>` is the exact `…​.pooler.supabase.com` host shown for your project. The direct connection (port 5432) is likewise copied from the dashboard.
 
 In webstack:
 
@@ -115,7 +117,7 @@ resource "supabase_project" "main" {
   organization_id   = var.supabase_organization_id
   name              = "webstack-myapp"
   database_password = var.supabase_db_password
-  region            = "ap-northeast-2"
+  region            = "ap-northeast-2" # (verify the accepted region enum value against the supabase/supabase provider — accepted values are provider-defined and have changed)
 }
 
 resource "supabase_branch" "preview" {
@@ -124,6 +126,8 @@ resource "supabase_branch" "preview" {
   region             = "ap-northeast-2"
 }
 ```
+
+> **(verify against the provider):** confirm the `region` enum accepts the value you set, and that the `supabase_branch` resource name/arguments still match the current `supabase/supabase` provider schema — both are younger surfaces that have shifted between releases.
 
 **Branches** (Pro feature) provision separate Postgres instances for preview deployments. Free tier projects use a single branch.
 
@@ -148,4 +152,4 @@ The IaC provider does **not** manage schema. Schema goes via Flyway only.
 - supabase/supabase provider (OpenTofu Registry): https://search.opentofu.org/provider/supabase/supabase/latest
 - Connection pooling: https://supabase.com/docs/guides/database/connecting-to-postgres
 
-Last verified: 2026-04-27.
+Last verified: 2026-06-22 (Supabase Free 2026 policy — no managed backups; pooler host read from dashboard).

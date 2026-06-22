@@ -9,17 +9,22 @@
 
 webstack's backend runs on a single Oracle Cloud Infrastructure (OCI) Ampere A1 ARM VM (Ubuntu 22.04). Because this is a public-internet-facing host with no reverse-NAT, no VPN gateway, and no private subnet, every security control must be deliberate and explicit.
 
-The security model is **defense-in-depth** across three layers:
+**The single-VM baseline (default).** Out of the box, two controls are enough and are what every webstack VM should have: the **OCI NSG** (SSH limited to your admin IP; only 80/443 open for Caddy) and **SSH key policy** (key-only auth, hardened `sshd_config`). Caddy on 443 → `localhost:8080` is the only public path; Spring Boot's 8080 is never exposed. Everything else in this document is an **opt-in defense-in-depth layer** you add as the project's exposure grows — not a prerequisite for a working, reasonably-secured deployment.
 
-| Layer | Technology | Scope |
-|---|---|---|
-| Cloud perimeter | OCI VCN + NSG | Packet-level allow/deny before traffic reaches the VM's NIC |
-| Host firewall | ufw | Kernel-level iptables rules on the VM itself |
-| Intrusion prevention | fail2ban | Rate-limit brute-force attempts; temporary IP bans |
+**Opt-in layers (add if/when you need them).** ufw (a host-firewall belt to the NSG's braces), fail2ban + the `recidive` jail (SSH brute-force rate-limiting), the OCI Bastion Service (close port 22 entirely), and the Cloudflare CIDR allowlist (only when the API record is proxied) each harden a specific surface:
 
-Each layer is independent. A misconfiguration in one does not create an open path if the others are correctly configured. The NSG blocks traffic at the Oracle hypervisor; ufw enforces the same rules in the VM kernel; fail2ban watches auth logs and bans repeat offenders. Taken together, a SSH brute-force bot must defeat all three layers to reach the application.
+| Layer | Technology | Status | Scope |
+|---|---|---|---|
+| Cloud perimeter | OCI VCN + NSG | **baseline** | Packet-level allow/deny before traffic reaches the VM's NIC |
+| SSH access policy | key-only `sshd_config` | **baseline** | Authentication hardening for the one open admin port |
+| Host firewall | ufw | opt-in | Kernel-level iptables rules echoing the NSG inside the VM |
+| Intrusion prevention | fail2ban (+ recidive) | opt-in | Rate-limit brute-force attempts; temporary IP bans |
+| SSH without a public port | OCI Bastion | opt-in | Removes port 22 from the internet entirely |
+| Origin lockdown | Cloudflare CIDR allowlist | opt-in (proxied mode only) | Restricts 80/443 to Cloudflare edge IPs |
 
-This document covers each layer, the OCI Bastion Service as an alternative to direct SSH, SSH key policy, an optional Cloudflare CIDR allowlist, Spring Boot Actuator isolation, and anti-patterns to avoid.
+Each layer is independent: a misconfiguration in one does not open a path if the others are correct. The NSG blocks traffic at the Oracle hypervisor; ufw (if enabled) enforces the same rules in the VM kernel; fail2ban (if enabled) watches auth logs and bans repeat offenders.
+
+This document covers the baseline first, then each opt-in layer, the OCI Bastion Service as an alternative to direct SSH, SSH key policy, the optional Cloudflare CIDR allowlist, Spring Boot Actuator isolation, and anti-patterns to avoid.
 
 ---
 
@@ -199,7 +204,7 @@ resource "oci_core_network_security_group_security_rule" "ingress_bastion_ssh" {
 
 ## Host hardening
 
-The NSG blocks traffic at the Oracle hypervisor. ufw and fail2ban operate inside the VM and provide a second line of defense that is independent of OCI configuration.
+The NSG blocks traffic at the Oracle hypervisor. ufw and fail2ban operate inside the VM and provide an **opt-in** second line of defense that is independent of OCI configuration — add them when you want host-level redundancy, not as a prerequisite for the baseline single-VM deployment.
 
 ### ufw — host firewall
 
@@ -305,8 +310,10 @@ AllowTcpForwarding no
 GatewayPorts no
 PermitTunnel no
 ClientAliveInterval 300
-ClientAliveCountMax 0
+ClientAliveCountMax 2
 ```
+
+`ClientAliveCountMax 0` would drop a session after a single missed keepalive (~5 min) — disruptive even for an active operator on a brief pause. `2` (with the 300 s interval) idles out an unresponsive session at ~15 minutes while leaving working sessions intact. Lower it deliberately only if a strict idle-timeout policy requires it.
 
 Test and apply:
 
@@ -343,7 +350,7 @@ If Cloudflare proxying is enabled for the `api.example.com` record (orange cloud
 
 ### Current Cloudflare CIDR ranges
 
-As of the last verified date (see footer), Cloudflare publishes these ranges at `https://www.cloudflare.com/ips/`:
+**Fetch the ranges at apply time — do not rely on the static list below.** Cloudflare publishes the authoritative lists at `https://www.cloudflare.com/ips-v4/` and `https://www.cloudflare.com/ips-v6/`; pull them into `var.cloudflare_ipv4_cidrs`/`var.cloudflare_ipv6_cidrs` (via the refresh cron in [CIDR refresh](#cidr-refresh), or an `http` data source) so the NSG rules are always current. The snapshot below is illustrative only and **will go stale**; it is shown so you know the shape, not to be copied verbatim. As of the last verified date (see footer):
 
 **IPv4:**
 
@@ -423,31 +430,23 @@ resource "oci_core_network_security_group_security_rule" "ingress_cf_https" {
 
 ## Spring Boot Actuator endpoint
 
-Spring Boot Actuator exposes health, metrics, environment, and heap dump endpoints. By default, the management port shares the application port (8080). Actuator endpoints must **never** be reachable from the internet.
+Spring Boot Actuator exposes health, metrics, environment, and heap dump endpoints. By default the management endpoints share the application port (8080). Actuator endpoints must **never** be reachable from the internet.
 
-Two defenses are required:
+**webstack keeps management on the application port (8080), not a separate 8081.** The whole Spring Boot app — `/api/**` plus `/actuator/**` — listens only on `localhost:8080`; Caddy on 443 is the sole public entry point and proxies to it. This is the port every other webstack doc assumes for health checks (`http://localhost:8080/actuator/health`, the deploy health gate, the keepalive crons, UptimeRobot's BE monitor). The defenses below keep the actuator surface private without splitting the port:
 
-**1. Bind Actuator to localhost only** in `application.properties` or `application.yml`:
+**1. The app binds to loopback.** Spring listens on `localhost:8080` (`server.address=127.0.0.1`), so 8080 is never directly reachable from outside the VM regardless of firewall state. Port 8080 is **not** in the NSG rule matrix and must never be added; ufw's `deny incoming` default blocks it on the host too.
 
-```properties
-# application.properties
-management.server.port=8081
-management.server.address=127.0.0.1
-```
-
-This binds the management HTTP server to the loopback interface. Spring Boot exposes `/actuator/**` only on `localhost:8081`. The main application continues on port 8080 (also localhost-only; Caddy proxies to it).
-
-### Block management port in NSG + ufw
-
-Port 8081 is not in the NSG rule matrix and must never be added. ufw's `deny incoming` default blocks it on the host. Verify:
+**2. Do not proxy `/actuator/**` to the public.** Caddy reverse-proxies only the public application paths. Either omit `/actuator/**` from the proxied routes, or restrict it in Caddy/Spring Security so health/metrics/heapdump are not exposed through 443. Verify:
 
 ```bash
-# Should return connection refused or no response
-curl -s http://localhost:8081/actuator/health   # OK — internal only
-curl -s http://<vm-public-ip>:8081/actuator     # Must timeout/refuse
+# From the VM — internal access works
+curl -s http://localhost:8080/actuator/health    # OK — loopback only
+# From the public side — actuator must not be served through Caddy
+curl -s https://api.example.com/actuator/env      # Must 404/403 — never reachable
+curl -s http://<vm-public-ip>:8080/actuator       # Must timeout/refuse — 8080 is loopback-only
 ```
 
-**Prometheus scraping** of Actuator metrics must happen from within the VM (Prometheus running on the same host) or via SSH port forwarding. Never open a public route to the management port.
+**Prometheus scraping** of Actuator metrics must happen from within the VM (Prometheus running on the same host) or via SSH port forwarding. Never open a public route to the actuator endpoints.
 
 Cross-link: Prometheus configuration and Actuator metric scraping are documented in `docs/backend/observability.md`.
 
@@ -459,7 +458,7 @@ Cross-link: Prometheus configuration and Actuator metric scraping are documented
 
 **Password authentication enabled.** `PasswordAuthentication yes` allows dictionary and credential-stuffing attacks. Disable unconditionally; all access must use public-key authentication.
 
-**Spring Boot Actuator exposed externally.** `management.server.address` not set defaults to all interfaces. An NSG rule opening port 8081 exposes `/actuator/env`, `/actuator/heapdump`, and `/actuator/shutdown` — leaking secrets and allowing remote shutdown. Always bind to `127.0.0.1`.
+**Spring Boot Actuator exposed externally.** `server.address` not set defaults to all interfaces; an NSG rule opening port 8080, or proxying `/actuator/**` through Caddy, exposes `/actuator/env`, `/actuator/heapdump`, and `/actuator/shutdown` — leaking secrets and allowing remote shutdown. Bind the app to `127.0.0.1`, keep 8080 out of the NSG, and do not route actuator paths through Caddy.
 
 **Cloudflare proxied + origin NSG allows `0.0.0.0/0`.** When the `api` record is orange-cloud proxied, Cloudflare DDoS protection can be bypassed by hitting the OCI IP directly. Restrict origin ingress to Cloudflare CIDRs when using proxied mode.
 
@@ -480,4 +479,4 @@ Cross-link: Prometheus configuration and Actuator metric scraping are documented
 - **Cloudflare IP ranges:** https://www.cloudflare.com/ips/ — _authoritative_
 - **SSH Academy — sshd_config hardening:** https://www.ssh.com/academy/ssh/sshd_config — _community: SSH.com academy_
 
-Last verified: 2026-05-04 (OCI Always Free / OpenSSH 9.X / ufw 0.36.X / fail2ban 1.X / Caddy 2.X).
+Last verified: 2026-06-22 (OCI Always Free / OpenSSH 9.X / ufw 0.36.X / fail2ban 1.X / Caddy 2.X).

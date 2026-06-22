@@ -17,13 +17,13 @@ The CNCF Sandbox tier means OpenTofu is past prototype but not yet at Incubating
 
 ## OpenTofu basics in webstack
 
-OpenTofu declares **infrastructure as code** in HCL, with a planner that diffs the desired state against the live state and applies the diff. webstack uses OpenTofu for Vercel (frontend deploy target), Oracle Cloud (backend host), and Supabase (database + auth) so every environment is reproducible from the repo.
+OpenTofu declares **infrastructure as code** in HCL, with a planner that diffs the desired state against the live state and applies the diff. webstack uses OpenTofu for Vercel (frontend deploy target), Oracle Cloud (backend host), and Supabase (managed Postgres only — Auth/Storage/Realtime/Edge Functions are not used) so every environment is reproducible from the repo.
 
 The shape of webstack's OpenTofu usage:
 
 - **Three providers, one repo.** `vercel/vercel`, `oracle/oci`, `supabase/supabase` all live in the same `<project>-infrastructure` repo.
 - **No modules in v1.** Resources are declared at the root. Module abstraction is added in v2 once patterns stabilize across multiple webstack projects.
-- **Local state in v1.** `terraform.tfstate` (the file name is preserved by OpenTofu for compatibility) lives next to the .tf files, gitignored. v2 introduces a remote backend (Supabase Postgres or S3-compatible).
+- **Remote state in v1.** State lives in an S3-compatible backend on OCI Object Storage (versioned, native conditional-write locking) — see [State](#state) and `docs/infrastructure/backup-and-recovery.md` (Layer 2). A purely local `terraform.tfstate` is only a bootstrap convenience before the backend is configured.
 - **Manual approval per apply.** webstack never auto-applies. The infra skill runs `tofu plan`, the user reviews via `tofu-plan-analyzer`, then explicitly approves `tofu apply`.
 
 This trade-off — local state, manual approve, no modules — keeps v1 understandable end-to-end for someone learning IaC alongside webstack. v2 adds the team-scale features.
@@ -121,13 +121,12 @@ Values come from environment variables prefixed `TF_VAR_` (e.g., `TF_VAR_vercel_
 
 ## State
 
-State holds the mapping between declared resources and live cloud resources. webstack v1 uses **local state** (`terraform.tfstate` in the repo root, gitignored — file name kept for Terraform compatibility).
+State holds the mapping between declared resources and live cloud resources. webstack v1 stores state in a **remote S3-compatible backend on OCI Object Storage** (versioned bucket + native conditional-write locking), so the state survives a lost laptop and every `apply` leaves a recoverable prior version. The full `backend "s3" { … }` block (endpoints, `use_lockfile`, the `skip_*` flags for OCI's S3-compat API, and the OCI Customer Secret Key pair) is documented once in `docs/infrastructure/backup-and-recovery.md` (Layer 2 — IaC state); `main.tf`'s `terraform { backend "s3" { … } }` points at the `webstack-tofu-state` bucket. A purely local `terraform.tfstate` is only a bootstrap convenience before the backend is wired (`tofu init -migrate-state` moves an existing local file into the bucket).
 
 Implications:
 
-- **Single operator.** Only one person/machine can run `tofu apply` at a time. State conflicts are absent because the file lives on one disk.
-- **Backups are user responsibility.** The state file should be backed up (e.g., periodic copy to a personal cloud drive). Losing it means re-importing or destroying-and-recreating.
-- **Secrets in state.** Even sensitive-marked variables end up in `terraform.tfstate` in plaintext for resources that capture them (Vercel env var values, Supabase keys). Treat the state file like the .env, or enable OpenTofu state encryption (below).
+- **Shared, recoverable state.** The versioned bucket plus `use_lockfile = true` (conditional-write locking) means the state is backed up automatically and concurrent applies are serialized — no DynamoDB and no manual copy-to-a-drive ritual.
+- **Secrets in state.** Even sensitive-marked variables end up in the state in plaintext for resources that capture them (Vercel env var values, Supabase passwords). OCI Object Storage encrypts at rest by default; add OpenTofu state encryption (below) as a second layer so the plaintext is also encrypted before it leaves the machine.
 
 OpenTofu state encryption (1.7+) lets the state file be encrypted at rest with a key derived from a passphrase or fetched from a KMS:
 
@@ -150,9 +149,7 @@ terraform {
 }
 ```
 
-Add `TF_VAR_tofu_state_passphrase` to `.env` if enabling. webstack v1 leaves encryption opt-in; the gitignore + .env discipline is the baseline defense, encryption is the second layer.
-
-webstack v2 introduces a **remote backend** (Supabase Postgres state backend or an S3-compatible store) plus mandatory state encryption. Out of scope for v1.
+Add `TF_VAR_tofu_state_passphrase` to `.env` if enabling. webstack v1 leaves encryption opt-in on top of the remote backend's at-rest encryption; the remote OCI backend + .env discipline is the baseline defense, OpenTofu state encryption is the second layer. webstack v2 makes state encryption mandatory.
 
 ## tofu plan output
 
@@ -222,20 +219,30 @@ output "supabase_project_url" {
   value       = "https://${supabase_project.main.id}.supabase.co"
 }
 
+# Do NOT string-build the pooler host as `aws-0-<region>...` — the pooler hostname has a
+# dynamic prefix (aws-0-, aws-1-, …) that varies by project/region/provider. Read the host
+# from the project's connection-string attribute exposed by the supabase data source instead
+# of constructing it. (verify the exact attribute name against your pinned supabase/supabase
+# provider — e.g. a `supabase_pooler` data source or the project's connection-string output.)
+data "supabase_pooler" "main" {
+  project_ref = supabase_project.main.id
+}
+
 output "database_url" {
   description = "Pooled Postgres connection string for the Spring app"
-  value       = "postgresql://postgres.${supabase_project.main.id}:${var.supabase_db_password}@aws-0-${supabase_project.main.region}.pooler.supabase.com:6543/postgres"
+  # transaction-mode pooled URL (port 6543), host taken from the provider, not hand-built
+  value       = data.supabase_pooler.main.url["transaction"] # (verify attribute shape against the pinned provider)
   sensitive   = true
 }
 
 output "database_direct_url" {
   description = "Direct Postgres connection string for Flyway migrations"
-  value       = "postgresql://postgres.${supabase_project.main.id}:${var.supabase_db_password}@aws-0-${supabase_project.main.region}.pooler.supabase.com:5432/postgres"
+  value       = data.supabase_pooler.main.url["session"]     # or the project's direct (5432) connection string (verify attribute)
   sensitive   = true
 }
 ```
 
-webstack uses Supabase strictly as a managed Postgres host (see `docs/infrastructure/supabase-setup.md`). The outputs are the two connection strings the backend needs — no anon keys, no service-role keys, no JWT secrets, because Auth/Storage/Realtime/Edge Functions are not used.
+webstack uses Supabase strictly as a managed Postgres host (see `docs/infrastructure/supabase-setup.md`). The outputs are the two connection strings the backend needs — no anon keys, no service-role keys, no JWT secrets, because Auth/Storage/Realtime/Edge Functions are not used. If the pinned provider version does not expose a pooler/connection-string attribute, copy the pooled and direct strings from the Supabase dashboard (Settings → Database) into `TF_VAR_*` and surface those instead — never reconstruct the `aws-0-` host.
 
 After apply, `tofu output -json` produces a JSON object the infra skill reads to update FE/BE repos' `.env.local.template` (placeholder names) and to generate the user instructions for their `.env.local` (actual values, never written to disk by Claude). The user copies the values from `tofu output` (or from the post-apply summary) into the FE/BE `.env.local` files.
 
@@ -244,7 +251,7 @@ In webstack `/webstack:infra` P5: outputs are read, FE/BE `.env.local.template` 
 ## webstack convention
 
 - **One infrastructure repo per project.** Sibling to FE and BE repos: `<project>-frontend/`, `<project>-backend/`, `<project>-infrastructure/`.
-- **Local state in v1.** `terraform.tfstate` gitignored. Daily user backup recommended; opt-in OpenTofu state encryption for additional defense.
+- **Remote state in v1.** S3-compatible backend on OCI Object Storage (versioned + `use_lockfile` locking), configured in `main.tf` and detailed in `backup-and-recovery.md` (Layer 2). Any stray local `terraform.tfstate` stays gitignored; opt-in OpenTofu state encryption adds a second layer.
 - **Plan-then-apply, always.** No `tofu apply` without an explicit prior `plan` reviewed via tofu-plan-analyzer.
 - **Sensitive markers on every secret variable.** Even if the secret already comes from .env, the marker keeps it out of plan output.
 - **Provider lockfile committed.** `.terraform.lock.hcl` (Terraform-compatible name) is checked in for reproducibility across machines and across CLI choice.
@@ -273,4 +280,4 @@ The webstack convention writes commands as `tofu` because that is the supported 
 - CNCF project page: https://www.cncf.io/projects/opentofu/
 - Sensitive variables (HCL — same shape across both CLIs): https://opentofu.org/docs/language/values/variables/#suppressing-values-in-cli-output
 
-Last verified: 2026-04-26 (OpenTofu 1.11.6 stable / 1.12.0-beta1).
+Last verified: 2026-06-22 (OpenTofu 1.11.6 stable / 1.12.0-beta1; remote OCI S3 state backend is the v1 default).

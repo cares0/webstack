@@ -63,8 +63,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Supabase CLI
+        env:
+          SUPABASE_CLI_VERSION: v2.34.3   # pin a known version (verify latest at https://github.com/supabase/cli/releases)
         run: |
-          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
+          curl -fsSL "https://github.com/supabase/cli/releases/download/${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz" \
             | tar -xz -C /usr/local/bin supabase
 
       - name: Dump and upload
@@ -176,25 +178,26 @@ Every `/webstack:deploy` publishes the Spring Boot JAR as a GitHub Release asset
 
 ### On-VM artifact store
 
-The OCI VM keeps the last 5 JARs in `/opt/app/releases/`. The active JAR is referenced via a `current` symlink. The deploy workflow manages this:
+The OCI VM keeps the last 5 releases under `/opt/app/releases/`, one timestamped directory per release (`/opt/app/releases/<timestamp>/app.jar`). The active release is referenced via a `current` symlink. The deploy workflow manages this:
 
 ```bash
-ARTIFACT="app-$(date -u +%Y%m%d-%H%M%S).jar"
-scp build/libs/app.jar opc@"$OCI_VM_IP":/opt/app/releases/"$ARTIFACT"
-ssh opc@"$OCI_VM_IP" "ln -sfn /opt/app/releases/$ARTIFACT /opt/app/current"
-ssh opc@"$OCI_VM_IP" "ls -t /opt/app/releases/app-*.jar | tail -n +6 | xargs -r rm --"
+TS="$(date -u +%Y%m%d-%H%M%S)"
+ssh ubuntu@"$OCI_VM_IP" "mkdir -p /opt/app/releases/$TS"
+scp build/libs/app.jar ubuntu@"$OCI_VM_IP":/opt/app/releases/"$TS"/app.jar
+ssh ubuntu@"$OCI_VM_IP" "ln -sfn /opt/app/releases/$TS /opt/app/current"
+ssh ubuntu@"$OCI_VM_IP" "ls -dt /opt/app/releases/*/ | tail -n +6 | xargs -r rm -rf --"
 ```
 
-The systemd unit reads `current` at start:
+The `webstack-app.service` systemd unit reads `current` at start:
 
 ```ini
 [Service]
-ExecStart=/usr/bin/java -jar /opt/app/current
+ExecStart=/usr/bin/java -jar /opt/app/current/app.jar
 Restart=on-failure
 RestartSec=5s
 ```
 
-`RestartSec=5s` recovers from transient OOM/exception. A rollback is `ln -sfn <old-jar> /opt/app/current && systemctl restart app`.
+`RestartSec=5s` recovers from transient OOM/exception. A rollback is `ln -sfn /opt/app/releases/<old-timestamp> /opt/app/current && systemctl restart webstack-app`.
 
 ---
 
@@ -225,9 +228,12 @@ Authentication is handled via OAuth 2.1 — the MCP client will prompt for login
 
 The Supabase MCP server gives the security-auditor SubAgent access to Supabase project metadata without exposing raw connection strings in prompts. Relevant capabilities:
 
-- **Backup age check**: list the 10 most recent objects under `daily/` in the OCI backup bucket; parse the timestamp from `backup-YYYYMMDDTHHMMSSZ.sql.gz`; alert if older than 26 hours (missed daily run).
-- **Manual trigger**: invoke `workflow_dispatch` on `db-backup.yml` via the GitHub CLI if the backup is stale.
 - **Pause detection**: surface a warning in the `/webstack:deploy` pre-flight check if the Supabase project is paused.
+
+The backup bucket itself lives in OCI Object Storage, so its checks run via the OCI CLI / S3-compatible API, not the Supabase MCP server:
+
+- **Backup age check** (OCI CLI): list the 10 most recent objects under `daily/` in the OCI backup bucket; parse the timestamp from `backup-YYYYMMDDTHHMMSSZ.sql.gz`; alert if older than 26 hours (missed daily run).
+- **Manual trigger** (GitHub CLI): invoke `workflow_dispatch` on `db-backup.yml` if the backup is stale.
 
 The backup age check runs during `/webstack:infra` as an advisory check. A stale backup emits a warning in the plan output but does not block `tofu apply`.
 
@@ -306,32 +312,33 @@ The backup age check runs during `/webstack:infra` as an advisory check. A stale
 1. SSH into the OCI VM and list available releases:
 
    ```bash
-   ssh opc@<vm-public-ip>
-   ls -lt /opt/app/releases/
+   ssh ubuntu@<vm-public-ip>
+   ls -dt /opt/app/releases/*/
    ```
 
 2. Roll back the symlink and restart:
 
    ```bash
-   sudo ln -sfn /opt/app/releases/app-<previous-timestamp>.jar /opt/app/current
-   sudo systemctl restart app
+   sudo ln -sfn /opt/app/releases/<previous-timestamp> /opt/app/current
+   sudo systemctl restart webstack-app
    ```
 
 3. Verify the service started cleanly:
 
    ```bash
-   sudo systemctl status app
-   sudo journalctl -u app -n 50 --no-pager
+   sudo systemctl status webstack-app
+   sudo journalctl -u webstack-app -n 50 --no-pager
    curl -fsS http://localhost:8080/actuator/health
    ```
 
 4. If all on-VM copies are broken, download from GitHub Releases:
 
    ```bash
-   gh release download <tag> --pattern "app.jar" --dir /opt/app/releases/
-   mv /opt/app/releases/app.jar /opt/app/releases/app-<tag>.jar
-   sudo ln -sfn /opt/app/releases/app-<tag>.jar /opt/app/current
-   sudo systemctl restart app
+   TS="$(date -u +%Y%m%d-%H%M%S)"
+   sudo mkdir -p /opt/app/releases/"$TS"
+   gh release download <tag> --pattern "app.jar" --dir /opt/app/releases/"$TS"
+   sudo ln -sfn /opt/app/releases/"$TS" /opt/app/current
+   sudo systemctl restart webstack-app
    ```
 
 5. Record the bad deployment SHA and rollback target in a GitHub issue for post-mortem.
@@ -378,4 +385,4 @@ When upgrading, disable the GitHub Actions backup cron (`db-backup.yml`) to avoi
 - **OpenTofu S3 backend documentation:** https://opentofu.org/docs/language/settings/backends/s3/ — _authoritative_
 - **OCI Object Storage S3 Compatibility API:** https://docs.oracle.com/en-us/iaas/Content/Object/Tasks/s3compatibleapi.htm — _authoritative_
 
-Last verified: 2026-05-04 (Supabase Free 2026 policy / OpenTofu 1.10.X / OCI Object Storage S3-compat).
+Last verified: 2026-06-22 (Supabase Free 2026 policy / OpenTofu 1.10.X / OCI Object Storage S3-compat).

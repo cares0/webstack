@@ -79,7 +79,7 @@ jobs:
 
 ### Backend CI (`*-backend/.github/workflows/ci.yml`)
 
-The matrix runs tests on Java 17 LTS, 21 LTS, and 25 LTS (Spring Boot 4.0 baseline is 17; 25 is the latest LTS and the runtime recommended for new projects). A `test-summary` aggregation job is the single required check for branch protection, avoiding per-entry check names (`test (17)`, `test (21)`, `test (25)`).
+The default runs tests on **Java 21 LTS** — the webstack runtime baseline (Spring Boot 4 supports 17/21/25; 21 is a safe current LTS). The job is written as a matrix so you can opt into extra versions (e.g., add `25` when you want to validate the next LTS before adopting it), but the default is a single-version run, not a 3-way 17/21/25 matrix. A `test-summary` aggregation job is the single required check for branch protection, so adding or removing a matrix entry never changes the branch-protection check name (`test (21)`, etc.).
 
 ```yaml
 name: BE CI
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [17, 21, 25]
+        java: [21]          # default: single LTS. Add 25 (e.g. [21, 25]) only when validating the next LTS.
       fail-fast: false
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -330,7 +330,7 @@ Results appear in Security > Code scanning. Add `codeql` to required checks to b
 
 #### Trivy — SHA pinning required
 
-> **Warning (2026-03 supply chain incident):** On March 19, 2026, attackers force-pushed malicious code to 75 of 76 version tags in `aquasecurity/trivy-action`. The attack persisted for ~12 hours and exfiltrated secrets from GitHub-hosted runners by dumping the runner process heap. Projects referencing the action by tag were exposed; projects pinned to a commit SHA were not. **Always pin third-party actions by commit SHA, never by tag.**
+> **Warning (2026-03 supply chain incident — verify the specifics):** On (reportedly) March 19, 2026, attackers force-pushed malicious code to 75 of 76 version tags in `aquasecurity/trivy-action`. The attack persisted for ~12 hours and exfiltrated secrets from GitHub-hosted runners by dumping the runner process heap. Projects referencing the action by tag were exposed; projects pinned to a commit SHA were not. (verify the date and exact details against the linked source before quoting them — see Sources.) Regardless of the incident specifics, the lesson holds: **always pin third-party actions by commit SHA, never by tag.**
 
 ```yaml
 # Vulnerable — tag is mutable
@@ -344,7 +344,7 @@ Container scan workflow: build the image as `app:${{ github.sha }}`, invoke `aqu
 
 #### Renovate auto-merge gate
 
-Add `renovate.json` at repo root with `"extends": ["config:base"]`. In `packageRules`:
+Add `renovate.json` at repo root with `"extends": ["config:recommended"]` (`config:base` is deprecated). In `packageRules`:
 
 - `matchUpdateTypes: ["patch"]` + `automerge: true` — patch bumps merge automatically once CI passes.
 - `matchUpdateTypes: ["minor", "major"]` + `automerge: false` — opens PRs for review.
@@ -380,4 +380,4 @@ Add `renovate.json` at repo root with `"extends": ["config:base"]`. In `packageR
 - **OCI Workload Identity Providers:** https://docs.oracle.com/en-us/iaas/Content/Identity/workloadidentity/manage-identity-domains-workload-identity-providers.htm — _authoritative_
 - **gradle/actions setup-gradle:** https://github.com/gradle/actions/blob/main/setup-gradle/README.md — _authoritative_
 
-Last verified: 2026-05-04 (GitHub Actions / actions/checkout@v4 / actions/setup-java@v4 / setup-node@v4 / pnpm/action-setup@v4).
+Last verified: 2026-06-22 (GitHub Actions / actions/checkout@v4 / actions/setup-java@v4 / setup-node@v4 / pnpm/action-setup@v4).

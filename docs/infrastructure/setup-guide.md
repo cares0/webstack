@@ -68,7 +68,7 @@ Your .env will need:
 You will also need:
 
 - `SUPABASE_ORGANIZATION_ID` — from the organization URL `https://supabase.com/dashboard/org/<id>`.
-- `SUPABASE_DB_PASSWORD` — generate a strong password now (use a password manager); you will paste this into Terraform on the first apply, and Supabase will provision the database with it.
+- `SUPABASE_DB_PASSWORD` — generate a strong password now (use a password manager); set it as `TF_VAR_supabase_db_password` in `.env` (Step 3) and Supabase provisions the database with it on the first apply. You never paste it into a prompt — secrets reach OpenTofu only via the `TF_VAR_*` environment, and Claude never reads `.env`.
 
 ## Step 3: Fill .env
 
@@ -210,7 +210,7 @@ If approaching a limit:
 
 - Vercel: upgrade to Pro ($20/mo) or split bandwidth-heavy assets to a CDN.
 - Oracle: scale down OCPU, archive old block volumes, move object storage data to Archive tier.
-- Supabase: archive cold tables (move to Storage), upgrade to Pro ($25/mo) for the project.
+- Supabase: prune or archive cold rows (e.g., export to the OCI backup bucket and delete), upgrade to Pro ($25/mo) for the project. (webstack does not use Supabase Storage.)
 
 ## Resetting credentials
 
@@ -284,4 +284,4 @@ See `docs/recipes/release-management-setup.md`. Recommended to activate after fi
 - OCI API signing keys: https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
 - OpenTofu install: https://opentofu.org/docs/intro/install/
 
-Last verified: 2026-04-27.
+Last verified: 2026-06-22.

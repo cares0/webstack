@@ -107,8 +107,8 @@ Every OCI compute instance lives in a **Virtual Cloud Network (VCN)**. Minimal l
 - **Route table** — default route `0.0.0.0/0` → IGW, attached to the public subnet.
 - **Security List** (or Network Security Group, preferred) — allow inbound:
   - 22 from your admin IP only (SSH).
-  - 80 / 443 from anywhere (HTTP/S to app).
-  - 8080 (or whatever Spring port) from a load balancer or directly if going LB-less.
+  - 80 / 443 from anywhere (HTTP/S — Caddy terminates TLS on 443 and reverse-proxies to Spring Boot on `localhost:8080`).
+  - Spring Boot's 8080 is **never** internet-exposed: Caddy is the only entry point and proxies to it over the loopback. Do not open 8080 in the security list/NSG. See `docs/infrastructure/network-security.md`.
 
 ```hcl
 resource "oci_core_vcn" "main" {
@@ -180,11 +180,11 @@ resource "oci_core_instance" "app" {
 }
 ```
 
-Use **Ubuntu 22.04 ARM** as the base image; OpenJDK 21, snap, systemd are first-class. Skip "Oracle Linux" unless you have a reason.
+Use **Ubuntu 22.04 ARM** as the base image; OpenJDK 21, snap, systemd are first-class. Skip "Oracle Linux" unless you have a reason. (verify: 22.04 LTS is a deliberate pin here — decide whether to move to 24.04 LTS for a longer support window before provisioning a new VM.)
 
 ## Boot volume
 
-The boot volume is provisioned automatically with the instance. Default size is 47 GB; raise to 50 GB minimum for Spring Boot apps with logs and Docker images.
+The boot volume is provisioned automatically with the instance. The default size is 50 GB, which is adequate for a Spring Boot app with logs; raise it only if you add Docker images or large local artifacts.
 
 ```hcl
 resource "oci_core_instance" "app" {
@@ -218,8 +218,8 @@ write_files:
 
       [Service]
       User=ubuntu
-      WorkingDirectory=/opt/app
-      ExecStart=/usr/bin/java -jar /opt/app/app.jar
+      WorkingDirectory=/opt/app/current
+      ExecStart=/usr/bin/java -jar /opt/app/current/app.jar
       EnvironmentFile=/opt/app/app.env
       Restart=on-failure
       RestartSec=10
@@ -227,14 +227,19 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 runcmd:
-  - mkdir -p /opt/app
-  - chown ubuntu:ubuntu /opt/app
+  # Rollback-capable release layout: /opt/app/releases/<timestamp>/app.jar + a `current` symlink.
+  - mkdir -p /opt/app/releases
+  - chown -R ubuntu:ubuntu /opt/app
+  # First deploy creates releases/<timestamp>/ and repoints `current` at it.
+  # Seed a placeholder target so the symlink exists from first boot; deploy overwrites it.
+  - install -d -o ubuntu -g ubuntu /opt/app/releases/bootstrap
+  - ln -sfn /opt/app/releases/bootstrap /opt/app/current
   - systemctl daemon-reload
   - systemctl enable webstack-app.service
-  # webstack-app.service is started after the first deploy uploads the jar
+  # webstack-app.service is started after the first deploy uploads the jar and repoints `current`
 ```
 
-The systemd unit reads `/opt/app/app.env` for `DATABASE_URL`, `SUPABASE_*`, etc. webstack `/webstack:deploy` SCPs the jar and the env file, then `systemctl restart webstack-app`.
+The systemd unit reads `/opt/app/app.env` for `DATABASE_URL`, `SUPABASE_*`, etc. and runs the jar via the `current` symlink (`/opt/app/current/app.jar`). webstack `/webstack:deploy` SCPs the jar into a new `/opt/app/releases/<timestamp>/` directory, repoints `current`, and then `systemctl restart webstack-app` (see `docs/infrastructure/release-management.md` and `backup-and-recovery.md` for the full deploy/rollback sequence).
 
 ## oracle/oci provider
 
@@ -263,9 +268,9 @@ terraform {
 
 - **Provider config:** `infrastructure/main.tf` declares `oracle/oci` pinned to a major version. Auth via `var.oci_tenancy_ocid`, `var.oci_user_ocid`, `var.oci_fingerprint`, `var.oci_private_key_path`, `var.oci_region` — all in `variables.tf`. `var.oci_compartment_id` (typically equal to `var.oci_tenancy_ocid` for solo projects, scoping resources to the root compartment) and `var.oci_ssh_public_key_path` complete the OCI variable set.
 - **Compute resources:** `infrastructure/oracle.tf` provisions VCN, public subnet, security list/NSG, and one Ampere A1 instance running Ubuntu 22.04 ARM with cloud-init.
-- **Cloud-init:** `infrastructure/cloud-init.yaml` (referenced via `file()`) installs OpenJDK 21 and the systemd unit. The jar is deployed separately via SCP.
+- **Cloud-init:** `infrastructure/cloud-init.yaml` (referenced via `file()`) installs OpenJDK 21, the `webstack-app.service` unit, and provisions the `/opt/app/releases/` directory plus the `current` symlink. The jar is deployed separately via SCP.
 - **Public IP** assigned at the VNIC level; the OpenTofu output exposes it for `/webstack:deploy` and DNS configuration.
-- **Deployment loop:** `/webstack:deploy` SCPs `build/libs/app.jar` and an updated `app.env` to `/opt/app/`, then `ssh ... systemctl restart webstack-app`. No CI/CD pipeline in v1.
+- **Deployment loop:** `/webstack:deploy` SCPs `build/libs/app.jar` into a fresh `/opt/app/releases/<timestamp>/` directory and an updated `app.env` to `/opt/app/`, repoints the `current` symlink, then `ssh ... systemctl restart webstack-app`. No CI/CD pipeline in v1.
 - **Free-tier monitoring:** the infra skill checks `oci_core_instance` count and shape configurations against the 4 OCPU / 24 GB Always Free total before `tofu apply`.
 
 ## Sources
@@ -276,4 +281,4 @@ terraform {
 - OCI VCN concepts: https://docs.oracle.com/en-us/iaas/Content/Network/Concepts/overview.htm
 - API signing keys: https://docs.oracle.com/en-us/iaas/Content/API/Concepts/apisigningkey.htm
 
-Last verified: 2026-04-26.
+Last verified: 2026-06-22 (Always Free Ampere A1 / boot volume 50 GB default / cloud-init releases+current layout).

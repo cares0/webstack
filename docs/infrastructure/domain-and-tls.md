@@ -91,6 +91,8 @@ resource "vercel_project_domain" "www" {
 
 Create a token via **My Profile > API Tokens > Create Token** using the **Edit zone DNS** template scoped to `example.com`. Store as `CLOUDFLARE_API_TOKEN` in `<infra>/.env`. Provider: `cloudflare/cloudflare ~> 4.0`. All records use `proxied = false`:
 
+> **(verify the provider major + resource names):** this pins `cloudflare/cloudflare ~> 4.0` and uses the `cloudflare_record` resource. Provider **v5 renamed the resource to `cloudflare_dns_record`** (and changed several attribute shapes). Confirm whether staying on v4 is a deliberate choice; if you adopt v5, rename `cloudflare_record` → `cloudflare_dns_record` (and `data.cloudflare_zone` usage) accordingly before `tofu apply`.
+
 ```hcl
 resource "cloudflare_record" "apex" {
   zone_id = data.cloudflare_zone.main.id
@@ -205,7 +207,7 @@ The OCI VM's Network Security Group must open inbound TCP ports **80** and **443
 
 Port 8080 (Spring Boot) must **not** be open to the internet. Caddy is the only entry point; inbound 8080 from `0.0.0.0/0` would bypass TLS entirely.
 
-Cross-link: full NSG HCL and security list configuration are in `infrastructure/network-security.md` (Phase C).
+Cross-link: full NSG HCL and security list configuration are in `infrastructure/network-security.md`.
 
 ### Let's Encrypt rate limits
 
@@ -309,4 +311,4 @@ As an independent check, use UptimeRobot/Freshping or a weekly cron on a separat
 - **HSTS Preload List submission:** https://hstspreload.org/ — _community: hstspreload.org (Chrome security team)_
 - **Let's Encrypt rate limits:** https://letsencrypt.org/docs/rate-limits/ — _authoritative_
 
-Last verified: 2026-05-04 (Caddy 2.X / Cloudflare DNS / Vercel custom domains / Let's Encrypt + ZeroSSL).
+Last verified: 2026-06-22 (Caddy 2.X / Cloudflare DNS / Vercel custom domains / Let's Encrypt + ZeroSSL).

@@ -10,23 +10,27 @@ webstack's frontend-first deployment story (Next.js + Vercel for FE; backend on 
 
 ## Free tier limits
 
-The Hobby plan is free with these limits as of 2026:
+The Hobby plan is free with these limits as of 2026 (verified 2026-06; these must match `free-tier-safety.md` §"Hobby plan limits"):
 
-- **100 GB outbound bandwidth per month.** Hard cap — once you hit 100 GB, deployments and traffic-serving are throttled until the cycle resets. Verify quota on Account → Usage.
-- **Unlimited requests** (Edge requests + Function invocations).
+- **100 GB Fast Data Transfer (bandwidth) per month.** Hard cap — once you hit 100 GB, the project stops serving until the cycle resets. Verify quota on Account → Usage.
+- **1,000,000 function invocations per month.** Not "unlimited"; at the cap, functions error.
+- **4 Active CPU-hours per month** and **360 GB-hours Provisioned Memory per month.** Function execution is blocked once either is exhausted.
+- **Projects pause when free-tier usage is exceeded** — there is **no overage billing** on Hobby. The only path forward is waiting for the calendar month to roll over or upgrading to Pro.
 - **1 concurrent build** at a time; subsequent pushes queue.
 - **6,000 build minutes per month** total.
 - **45-minute hard limit per individual build.** Even with monthly minutes remaining, any single build that exceeds 45 minutes fails immediately. webstack-generated frontends rarely approach this on a fresh project, but a Next.js app that grows large (heavy MDX, megabytes of static assets, expensive `generateStaticParams`) can hit it. Mitigations: cache `node_modules` (Vercel does this automatically), reduce `generateStaticParams` set or move to ISR / on-demand revalidation, or upgrade to Pro for the 60-minute limit.
-- **No commercial use.** Hobby projects must be personal/non-commercial. Paid Pro tier is required for any commercial product.
+- **Personal / non-commercial use only.** Hobby projects must be personal/non-commercial. Paid Pro tier is required for any commercial product.
 - **100 deployments per day** per account.
 - **No team members on Hobby**; collaboration requires Pro/Enterprise.
+
+For ongoing usage monitoring and the per-resource at-limit behavior, see `docs/infrastructure/free-tier-safety.md` §"Vercel Hobby usage monitoring" (the limit table there is the canonical source these numbers track).
 
 webstack assumes Hobby for the personal/learning/MVP use case and warns when usage approaches limits. A commercial product moving to Pro requires only re-confirming the plan in the Vercel dashboard; the project itself does not change.
 
 > **Hard limits to watch (gotchas):**
 >
 > - **45 min per build** — fails immediately if exceeded, regardless of monthly minutes remaining.
-> - **100 GB monthly bandwidth** — hard-enforced; new requests are throttled at the cap, not a soft warning.
+> - **100 GB monthly bandwidth** — hard-enforced; the project pauses at the cap (no overage billing), not a soft warning.
 > - **100 deployments/day** — push storms (force-push branches in CI) can blow through this faster than you'd expect.
 >
 > If `/webstack:deploy` reports a Vercel build error, check `vercel logs <deployment-url>` and look for "Build exceeded maximum allowed duration" before assuming code changes broke the build.
@@ -107,7 +111,7 @@ resource "vercel_project" "frontend" {
   }
   build_command = "next build"
   resource_config = {
-    function_default_regions = ["icn1"] # Seoul; change per geography
+    function_default_regions = ["icn1"] # Seoul; change per geography. (verify the `resource_config.function_default_regions` attribute name/shape against vercel/vercel ~> 2.0 — provider attribute names have shifted across major versions)
   }
 }
 
@@ -190,4 +194,4 @@ In webstack, the convention is `git push origin main` is the deploy command. `/w
 - Vercel pricing & limits: https://vercel.com/docs/limits
 - Vercel environment variables: https://vercel.com/docs/projects/environment-variables
 
-Last verified: 2026-04-26.
+Last verified: 2026-06-22 (Vercel Hobby 2026 limits — see free-tier-safety.md for the canonical limit table).

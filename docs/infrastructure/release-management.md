@@ -2,13 +2,13 @@
 
 > Reference for /webstack:deploy slash command.
 > ⚙️ **Optional integration** — activated via init's "Release management" question (`manifest.optional_integrations.release_management=true`). Until activated, this document is reference-only; setup steps live in `recipes/release-management-setup.md`.
-> semver + Conventional Commits + git-cliff CHANGELOG + Vercel Rolling Releases for webstack's 3-repo layout.
+> semver + Conventional Commits + git-cliff CHANGELOG for webstack's 3-repo layout. Vercel Rolling Releases are a **Pro/Enterprise-only** opt-in; the default Hobby path is push→auto-deploy + Instant Rollback.
 
 ---
 
 ## What is webstack releases
 
-webstack coordinates releases across three sibling repos: `*-frontend` (Vercel, tag `fe/v1.2.3`), `*-backend` (OCI JAR, tag `be/v1.2.3`), and `*-infrastructure` (OpenTofu, tag `infra/v1.2.3`).
+webstack coordinates releases across three sibling repos: `*-frontend` (Vercel), `*-backend` (OCI JAR), and `*-infrastructure` (OpenTofu). Each repo tags releases independently with plain `v1.2.3` tags (no `fe/`/`be/`/`infra/` prefix — see [3-repo version sync](#3-repo-version-sync)).
 
 A _release_ is a coordinated version bump across all three in a single promotion event. All repos share the same MAJOR.MINOR.PATCH string so any feature can be traced through all three histories. The version triplet is tracked in `.webstack/manifest.yaml`; each repo generates its own `CHANGELOG.md` via git-cliff; a parent-level `RELEASES.md` cross-links all three.
 
@@ -20,7 +20,7 @@ Version 0.y.z covers pre-production; `1.0.0` marks the first production release.
 
 Release management is Tier 3 opt-in because early-stage projects deploy from `main` continuously. Adding release ceremony before first production users creates overhead without value; `1.0.0` is the natural activation trigger.
 
-All tool choices are free-tier compatible: git-cliff (Apache-2.0, zero hosting), Vercel Rolling Releases (available on Hobby), GitHub Actions tag-push triggers (< 30 s per release), and commitlint (local npm dev-dep). The existing commitlint `commit-msg` hook (see `docs/cross-cutting/pre-commit-hooks.md`) enforces Conventional Commits structurally — release management depends on clean commit history.
+Most tool choices are free-tier compatible: git-cliff (Apache-2.0, zero hosting), GitHub Actions tag-push triggers (< 30 s per release), and commitlint (local npm dev-dep). The one exception is **Vercel Rolling Releases, which require Vercel Pro/Enterprise** — on Hobby the default is push→auto-deploy with Instant Rollback (see [FE rolling release](#fe-rolling-release)). The existing commitlint `commit-msg` hook (see `docs/cross-cutting/pre-commit-hooks.md`) enforces Conventional Commits structurally — release management depends on clean commit history.
 
 ---
 
@@ -146,11 +146,11 @@ git-cliff runs in GitHub Actions on every version tag push. Each repo uses plain
 
 ## Vercel MCP integration
 
-The Vercel MCP server (via `vercel-labs/agent-skills`) gives the `/webstack:deploy` SubAgent the ability to manage Rolling Releases and trigger Instant Rollback without leaving the Claude Code session. The relevant capabilities for release management are:
+The Vercel MCP server (via `vercel-labs/agent-skills`) gives the `/webstack:deploy` SubAgent the ability to trigger Instant Rollback and — on Pro/Enterprise — manage Rolling Releases, without leaving the Claude Code session. The relevant capabilities for release management are:
 
-- **Promote deployment** — advance a Rolling Release to the next stage or complete it to 100%.
-- **Instant Rollback** — revert production traffic to a prior deployment by deployment ID.
-- **Check active rollout** — query current rolling release status (canary %, metrics delta).
+- **Instant Rollback** (all plans, incl. Hobby) — revert production traffic to a prior deployment by deployment ID.
+- **Promote deployment** (Pro/Enterprise) — advance a Rolling Release to the next stage or complete it to 100%.
+- **Check active rollout** (Pro/Enterprise) — query current rolling release status (canary %, metrics delta).
 
 ### Vercel MCP invocation patterns (G1)
 
@@ -163,9 +163,11 @@ The Vercel MCP integration is available as the `mcp__claude_ai_Vercel__*` tool f
 
 ## FE rolling release
 
+> **Requires Vercel Pro/Enterprise.** Rolling Releases are not available on the Hobby plan. On Hobby, the default FE path is `git push origin main` → automatic production deploy, with **Instant Rollback** as the revert mechanism (revert to a prior deployment from the dashboard or via the Vercel MCP `rollback` call — underlying REST `POST /v1/projects/{id}/rollback/{deploymentId}`). The staged-canary recipe below applies only once the project is on Pro.
+
 ### Configuration
 
-Enable Rolling Releases at **Vercel Dashboard → Project Settings → Build & Deployment → Rolling Releases**. Configure two stages: Stage 1 at 10% (automatic on tag push) and Stage 2 at 100% (manual approve or automated health-gate pass).
+Enable Rolling Releases at **Vercel Dashboard → Project Settings → Build & Deployment → Rolling Releases** (Pro/Enterprise). Configure two stages: Stage 1 at 10% (automatic on tag push) and Stage 2 at 100% (manual approve or automated health-gate pass).
 
 Enable Skew Protection at **Project Settings → Deployment Protection → Skew Protection**. Without it users mid-rollout may receive a new HTML page paired with old API responses.
 
@@ -206,26 +208,27 @@ webstack runs the backend on a single Ampere A1 VM (OCI Always Free). True blue-
 ```
 /opt/app/
 ├── releases/
-│   ├── app-20250501-120000.jar   ← oldest retained
-│   ├── app-20250503-090000.jar
-│   ├── app-20250503-140000.jar
-│   ├── app-20250503-181500.jar
-│   └── app-20250504-103000.jar   ← most recent
-└── current -> /opt/app/releases/app-20250504-103000.jar
+│   ├── 20250501-120000/app.jar   ← oldest retained
+│   ├── 20250503-090000/app.jar
+│   ├── 20250503-140000/app.jar
+│   ├── 20250503-181500/app.jar
+│   └── 20250504-103000/app.jar   ← most recent
+└── current -> /opt/app/releases/20250504-103000
 ```
 
-The five most recent JARs are retained; the sixth-oldest is pruned on every deploy, leaving four prior rollback targets available without a network download.
+The five most recent release directories are retained; the sixth-oldest is pruned on every deploy, leaving four prior rollback targets available without a network download.
 
 ### systemd unit with version marker
 
 ```ini
+# /etc/systemd/system/webstack-app.service
 [Unit]
 Description=webstack backend
 After=network.target
 
 [Service]
-User=opc
-ExecStart=/usr/bin/java -jar /opt/app/current
+User=ubuntu
+ExecStart=/usr/bin/java -jar /opt/app/current/app.jar
 Environment=APP_VERSION=1.2.3
 Restart=on-failure
 RestartSec=5s
@@ -234,7 +237,7 @@ RestartSec=5s
 WantedBy=multi-user.target
 ```
 
-`Environment=APP_VERSION=` is rewritten by the deploy workflow. The version is then visible in `systemctl status app` and in `/actuator/info` (requires `management.info.env.enabled=true` in `application.properties`).
+`Environment=APP_VERSION=` is rewritten by the deploy workflow. The version is then visible in `systemctl status webstack-app` and in `/actuator/info` (requires `management.info.env.enabled=true` in `application.properties`).
 
 ### Deploy sequence
 
@@ -242,40 +245,42 @@ The `/webstack:deploy` GitHub Actions job executes these steps in order:
 
 ```bash
 VERSION="1.2.3"
-ARTIFACT="app-$(date -u +%Y%m%d-%H%M%S).jar"
+TS="$(date -u +%Y%m%d-%H%M%S)"
 
-# 1. Build and upload
+# 1. Build and upload into a fresh release directory
 ./gradlew bootJar
-scp build/libs/app.jar opc@"$OCI_VM_IP":/opt/app/releases/"$ARTIFACT"
+ssh ubuntu@"$OCI_VM_IP" "mkdir -p /opt/app/releases/$TS"
+scp build/libs/app.jar ubuntu@"$OCI_VM_IP":/opt/app/releases/"$TS"/app.jar
 
 # 2. Rewrite version marker in systemd unit, reload daemon
-ssh opc@"$OCI_VM_IP" \
+ssh ubuntu@"$OCI_VM_IP" \
   "sudo sed -i 's/^Environment=APP_VERSION=.*/Environment=APP_VERSION=${VERSION}/' \
-   /etc/systemd/system/app.service && sudo systemctl daemon-reload"
+   /etc/systemd/system/webstack-app.service && sudo systemctl daemon-reload"
 
 # 3. Swap symlink and restart
-ssh opc@"$OCI_VM_IP" \
-  "sudo ln -sfn /opt/app/releases/$ARTIFACT /opt/app/current && \
-   sudo systemctl restart app"
+ssh ubuntu@"$OCI_VM_IP" \
+  "sudo ln -sfn /opt/app/releases/$TS /opt/app/current && \
+   sudo systemctl restart webstack-app"
 
 # 4. Health gate — 3 retries × 10 s
 for i in 1 2 3; do
   sleep 10
-  curl -fsS "http://$OCI_VM_IP:8080/actuator/health" | grep -q '"status":"UP"' && break
+  # 8080 is loopback-only behind Caddy, so health-check over SSH on the box (matches the deploy steps above).
+  ssh ubuntu@"$OCI_VM_IP" "curl -fsS http://localhost:8080/actuator/health" | grep -q '"status":"UP"' && break
   if [ "$i" -eq 3 ]; then
-    PREV=$(ssh opc@"$OCI_VM_IP" "ls -t /opt/app/releases/app-*.jar | sed -n '2p'")
-    ssh opc@"$OCI_VM_IP" \
-      "sudo ln -sfn $PREV /opt/app/current && sudo systemctl restart app"
+    PREV=$(ssh ubuntu@"$OCI_VM_IP" "ls -dt /opt/app/releases/*/ | sed -n '2p'")
+    ssh ubuntu@"$OCI_VM_IP" \
+      "sudo ln -sfn \"${PREV%/}\" /opt/app/current && sudo systemctl restart webstack-app"
     exit 1   # marks Actions job failed; agent triggers FE Instant Rollback
   fi
 done
 
-# 5. Prune — keep newest 5
-ssh opc@"$OCI_VM_IP" \
-  "ls -t /opt/app/releases/app-*.jar | tail -n +6 | xargs -r sudo rm --"
+# 5. Prune — keep newest 5 release directories
+ssh ubuntu@"$OCI_VM_IP" \
+  "ls -dt /opt/app/releases/*/ | tail -n +6 | xargs -r sudo rm -rf --"
 ```
 
-Health gate failure at step 4 triggers automatic rollback to the prior JAR (step `sed -n '2p'` selects the second-newest) and exits with code 1. The `/webstack:deploy` agent then invokes Instant Rollback on the Vercel side to keep FE and BE versions aligned.
+Health gate failure at step 4 triggers automatic rollback to the prior release (step `sed -n '2p'` selects the second-newest directory) and exits with code 1. The `/webstack:deploy` agent then invokes Instant Rollback on the Vercel side to keep FE and BE versions aligned.
 
 ---
 
@@ -331,14 +336,14 @@ Example:       hotfix/1.2.4
 
 ```bash
 # Branch from the last release tag — not from main
-git checkout -b hotfix/1.2.4 be/v1.2.3
+git checkout -b hotfix/1.2.4 v1.2.3
 
 # Apply one minimal fix commit
 git commit -m "fix(auth): session token not invalidated on logout"
 
 # Tag and push (triggers CHANGELOG + deploy)
-git tag be/v1.2.4 -m "hotfix: be/v1.2.4"
-git push origin hotfix/1.2.4 be/v1.2.4
+git tag v1.2.4 -m "hotfix: v1.2.4"
+git push origin hotfix/1.2.4 v1.2.4
 
 # Merge back to main (--ff-only keeps history linear)
 git checkout main && git merge --ff-only hotfix/1.2.4
@@ -352,7 +357,7 @@ git branch -d hotfix/1.2.4 && git push origin --delete hotfix/1.2.4
 
 Hotfix branches merge back to `main` via `--ff-only`. If main has diverged, rebase the hotfix onto the current tip first (`git rebase main hotfix/1.2.4`), then `git merge --ff-only`. This keeps git history linear for git-cliff.
 
-Not all hotfixes touch all three repos. If only BE and FE are affected, tag only `be/v1.2.4` and `fe/v1.2.4`; leave `infra` at `v1.2.3`. Update the manifest to reflect the asymmetric bump (`infra: "1.2.3"`, `backend: "1.2.4"`, `frontend: "1.2.4"`).
+Not all hotfixes touch all three repos. If only BE and FE are affected, tag `v1.2.4` in the backend and frontend repos only; leave `infra` at `v1.2.3`. Update the manifest to reflect the asymmetric bump (`infra: "1.2.3"`, `backend: "1.2.4"`, `frontend: "1.2.4"`).
 
 ---
 
@@ -381,4 +386,4 @@ Not all hotfixes touch all three repos. If only BE and FE are affected, tag only
 - **Semantic Versioning 2.0.0:** https://semver.org/ — _authoritative_
 - **Vercel agent-skills (Claude Code plugin):** https://github.com/vercel-labs/agent-skills — _community: Vercel-affiliated, MIT licensed_
 
-Last verified: 2026-05-04 (git-cliff 2.X / Vercel Rolling Releases GA / Conventional Commits 1.0).
+Last verified: 2026-06-22 (git-cliff 2.X / Vercel Rolling Releases GA, Pro/Enterprise-only / Conventional Commits 1.0).

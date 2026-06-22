@@ -108,7 +108,7 @@ OCI reclaims an Always Free Ampere A1 instance when **all three** of the followi
 | Network utilization | < 20% |
 | Memory utilization (A1 shapes only) | < 20% |
 
-To prevent reclamation, keep **one** metric above its threshold. A self-curl to `/actuator/health/readiness` every 30 minutes (336 requests/week, 2–10 ms CPU each) is enough to exceed the 20% P95 threshold. No stress tool is needed.
+To prevent reclamation, the instance must not look idle across the whole 7-day window. A self-curl to `/actuator/health/readiness` every 30 minutes (336 requests/week, 2–10 ms CPU each) generates periodic CPU/network activity so the VM is never classified as idle for the full window. It is a lightweight liveness signal, not a load generator — it does not by itself push the 95th-percentile CPU above 20%. No stress tool is needed; the goal is recorded activity, not a sustained utilization threshold.
 
 ### Keepalive cron — GitHub Actions
 
@@ -148,7 +148,7 @@ Add `API_DOMAIN`, `SUPABASE_PROJECT_REF`, and `SUPABASE_ANON_KEY` as repository 
 
 Requests to `localhost` do not leave the VM, so no egress billing applies.
 
-To verify keepalive is working: OCI Console → **Observability → Metrics Explorer**, query `CpuUtilization` with `namespace=oci_computeagent`, `aggregation=P95`. A 7-day P95 below 20% means the keepalive is failing.
+To verify keepalive is working: OCI Console → **Observability → Metrics Explorer**, query `CpuUtilization` (and/or `NetworksBytesIn`/`NetworksBytesOut`) with `namespace=oci_computeagent`. You should see a recurring spike on every ping interval — flat-line gaps spanning the keepalive period mean the cron is not running. The signal to confirm is regular recorded activity across the window, not a sustained P95 above any threshold.
 
 ---
 
@@ -156,7 +156,7 @@ To verify keepalive is working: OCI Console → **Observability → Metrics Expl
 
 Vercel Hobby enforces hard monthly caps. When any cap is reached, the deployment stops serving traffic immediately — **no overage option, no grace period**.
 
-### Hobby plan limits (verified 2026-03)
+### Hobby plan limits (verified 2026-06)
 
 | Resource | Monthly limit | At limit |
 |---|---|---|
@@ -313,4 +313,4 @@ When the product generates revenue: **Vercel Pro** ($20) + **Supabase Pro** ($25
 - **OCI Always Free FAQ (reclamation conditions):** https://www.oracle.com/cloud/free/faq/ — _authoritative_
 - **Vercel community — Hobby bandwidth tracking patterns:** https://github.com/orgs/vercel/discussions — _community: Vercel GitHub Discussions_
 
-Last verified: 2026-05-04 (OCI Always Free / Vercel Hobby / Supabase Free 2026 policy).
+Last verified: 2026-06-22 (OCI Always Free / Vercel Hobby / Supabase Free 2026 policy).
