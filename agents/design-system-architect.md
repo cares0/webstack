@@ -60,7 +60,7 @@ Bash for: `oklch` color computation via `python3` if needed.
 
 ## Outputs (files written)
 
-- `tokens.json` (schema in spec §8.4)
+- `tokens.json` (schema: `design-system/tokens.json` in `shared/schemas.md`)
 - `theme.css` — `:root { --color-... }` + `.dark { ... }` blocks. OKLCH format (current ShadCN convention); the build-fe Server Component pipeline reads CSS variables directly without color-space conversion.
 - `component-variants.md` — Markdown with cva snippets ready to copy into the frontend repo. Snippets reference the FSD-lite paths: `src/shared/ui/button.tsx`, `src/shared/ui/card.tsx`, etc. Do not use `src/components/ui/` paths in the snippets.
 

@@ -53,8 +53,9 @@ No secret value appears in any AI-visible context (transcript, file content, com
 # Some checks require Claude Code session; some can be verified via grep
 TEST_DIR="${TEST_DIR:?}"
 cd "$TEST_DIR/myapp-infrastructure"
-# Verify all key spec §10.2 deny patterns are present in settings.local.json.
+# Verify all key deny patterns are present in settings.local.json (canonical list: skills/init/SKILL.md Phase 6 step 8).
 grep -q "Read(./.env)"            .claude/settings.local.json || { echo "FAIL: deny rule for .env Read missing";              exit 1; }
+grep -q "Read(\*\*/.env.production)" .claude/settings.local.json || { echo "FAIL: deny rule for .env.production Read missing";  exit 1; }
 grep -q "Bash(cat .env"           .claude/settings.local.json || { echo "FAIL: deny rule for cat .env missing";              exit 1; }
 grep -q "Bash(printenv \*_TOKEN)" .claude/settings.local.json || { echo "FAIL: deny rule for printenv *_TOKEN missing";       exit 1; }
 grep -q "Bash(printenv \*_KEY)"   .claude/settings.local.json || { echo "FAIL: deny rule for printenv *_KEY missing";         exit 1; }

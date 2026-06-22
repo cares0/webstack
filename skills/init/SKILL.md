@@ -53,7 +53,7 @@ Invoke `brand-archetype-matcher` SubAgent with the captured intake. Receive prim
 
 If confidence Low: ask user to confirm/refine. Re-invoke if needed.
 
-Write `<project_root>/.webstack/identity.md` per the schema in spec §8.2.
+Write `<project_root>/.webstack/identity.md` per the `identity.md` schema in `shared/schemas.md`.
 
 Checkpoint: "Identity captured. Proceed to persona?"
 
@@ -168,7 +168,7 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
 
    ```bash
    # Look up the current default at https://start.spring.io and substitute below.
-   # As of 2026-05-04 the latest GA Spring Boot 4.x is in the 4.0.x line (Java 17 baseline, Java 25 LTS recommended); verify before init.
+   # Spring Boot 4.0.x line (GA 2025-11): Java 17 baseline; 21 and 25 also supported. webstack defaults to javaVersion=21 (a current LTS) below — bump to 25 if you want the latest LTS. Resolve bootVersion dynamically so an outdated patch never gets hardcoded.
    BOOT_VERSION="$(curl -s https://start.spring.io/metadata/client | python3 -c 'import json,sys; print(json.load(sys.stdin)["bootVersion"]["default"])')"
 
    # Base deps (always). Add 'security' conditionally below.
@@ -294,7 +294,7 @@ Checkpoint: "Optional integrations decided. Proceed to infrastructure repo?"
 3. Write `main.tf` with provider blocks (vercel/vercel, oracle/oci, supabase/supabase) and `terraform { required_providers { ... } }`.
 4. Write `variables.tf` declaring all token/credential variables with `sensitive = true`. Match `.env.template`.
 5. Write empty stub `vercel.tf`, `oracle.tf`, `supabase.tf` with comments — they get populated by user/agent in `/webstack:infra`.
-6. Write `.env.template` (placeholders only — see spec §10.2).
+6. Write `.env.template` (placeholders only — see the `.env.template` schema in `shared/schemas.md`).
 7. Write `.gitignore` covering `.env*`, `.terraform/`, `*.tfstate*`, `*.tfvars*`.
 8. Write `.claude/settings.local.json` with these exact deny patterns (the security contract — embed verbatim, do not improvise):
 
@@ -306,6 +306,10 @@ Checkpoint: "Optional integrations decided. Proceed to infrastructure repo?"
          "Read(./.env.local)",
          "Read(**/.env)",
          "Read(**/.env.local)",
+         "Read(**/.env.production)",
+         "Read(**/.env.development)",
+         "Read(**/.env.staging)",
+         "Read(**/.env.test)",
          "Bash(cat .env*)",
          "Bash(printenv *_TOKEN)",
          "Bash(printenv *_KEY)",
@@ -321,7 +325,7 @@ Checkpoint: "Optional integrations decided. Proceed to infrastructure repo?"
    }
    ```
 
-   These 14 patterns + the plugin's `hooks/hooks.json` PreToolUse rules form a layered defense: deny rules block at Claude Code permission layer, hooks block at the helper-script layer. Both must agree — do not weaken either.
+   These 18 patterns + the plugin's `hooks/hooks.json` PreToolUse rules form a layered defense: deny rules block at Claude Code permission layer, hooks block at the helper-script layer. Both must agree — do not weaken either. (The `.env.production`/`.env.development`/`.env.staging`/`.env.test` Read denies cover Next.js's environment-specific files, which can hold secrets; `.env.template`/`.env.example` remain readable.)
 9. Write `SETUP.md` (use `docs/infrastructure/setup-guide.md` as template; substitute `<project>` placeholders with the actual project name). **If `needs_auth=true`** in `manifest.yaml`, append a final section to SETUP.md titled "## Authentication next steps" that points to `docs/recipes/spring-security-auth.md` and notes that webstack does not provision an ID provider — the user implements auth themselves with Spring Security per the recipe when adding the first auth-bearing feature.
 10. Initial commit + push.
 
@@ -329,7 +333,7 @@ Checkpoint: "Infrastructure repo created. SETUP.md written."
 
 ## Completion
 
-1. Write `<project_root>/.webstack/manifest.yaml` with all collected metadata (see spec §8.1).
+1. Write `<project_root>/.webstack/manifest.yaml` with all collected metadata (see the `manifest.yaml` schema in `shared/schemas.md`).
 2. Print final message:
    > Init complete. Your project is at `<project_root>/`. Three repos created. Design system at `.webstack/design-system/`. Next:
    > 1. Read `<infrastructure-repo>/SETUP.md` and sign up for Vercel, Oracle Cloud, Supabase.

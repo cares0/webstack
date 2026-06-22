@@ -45,7 +45,7 @@ The brand-archetype-matcher SubAgent processes user answers through these prompt
 
 ## Output schema (`.webstack/identity.md`)
 
-See spec §8.2.
+See the `identity.md` schema in `shared/schemas.md`.
 
 ## Mapping archetype → design tokens (used by design-system-architect)
 

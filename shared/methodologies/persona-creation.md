@@ -44,7 +44,7 @@ For each persona, capture:
 - **Pains**: frustrations, blockers, anxieties.
 - **Gains**: aspirations, what they value.
 
-webstack persona schema (spec §8.3) includes the Cooper essentials. Empathy map fields can be added inline if user provides them.
+The webstack persona schema (`personas/primary.md` in `shared/schemas.md`) includes the Cooper essentials. Empathy map fields can be added inline if user provides them.
 
 ## Anti-patterns
 
