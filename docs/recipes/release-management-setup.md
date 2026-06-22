@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Pin actions to a full commit SHA (repo pinning rule, OWASP A08); the version comment lets Renovate bump the SHA.
-      - uses: actions/checkout@<full-commit-sha>  # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0          # full history required by git-cliff
 
@@ -136,7 +136,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@<full-commit-sha>  # v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           body_path: CHANGELOG.md
           make_latest: true

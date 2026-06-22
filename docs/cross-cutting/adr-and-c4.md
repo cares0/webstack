@@ -246,7 +246,7 @@ In `.github/workflows/pr.yml`:
   run: ./gradlew test --tests "*DocumentationTest"
 
 - name: Upload diagram artifacts
-  uses: actions/upload-artifact@<full-commit-sha>  # v4 — pin to full SHA (repo pinning rule, OWASP A08)
+  uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4 (repo pinning rule, OWASP A08; Renovate bumps the SHA)
   with:
     name: spring-modulith-docs
     path: build/spring-modulith-docs/
@@ -273,12 +273,12 @@ Render the generated `.puml` files to SVG and post them as a PR comment so revie
 
 ```yaml
 - name: Render PlantUML diagrams
-  uses: cloudbees/plantuml-github-action@<full-commit-sha>  # pin to full SHA — never @master (repo pinning rule)
+  uses: cloudbees/plantuml-github-action@<full-commit-sha>  # NOTE: this action repo does not resolve (renamed/removed) — before enabling this optional step, swap in a maintained PlantUML render action (e.g. grassedge/generate-plantuml-action, whose inputs differ from the `args:` shown) and pin its full SHA (repo pinning rule)
   with:
     args: -tsvg build/spring-modulith-docs/*.puml
 
 - name: Comment diagrams on PR
-  uses: actions/github-script@<full-commit-sha>  # v7 — pin to full SHA (repo pinning rule)
+  uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7 (repo pinning rule)
   if: |
     github.event_name == 'pull_request' &&
     github.event.pull_request.head.repo.full_name == github.repository
