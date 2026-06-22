@@ -26,6 +26,8 @@ build/
 .turbo/
 target/
 out/
+__pycache__/
+*.pyc
 
 # Logs
 *.log

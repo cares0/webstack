@@ -75,3 +75,43 @@ jobs:
                   raise AssertionError(f'marketplace.json plugins[{i}].source must be string or object')
           print('marketplace.json: OK')
           PY
+
+      - name: Validate internal references
+        run: |
+          python3 - <<'PY'
+          import os, re, sys, glob
+          fail = []
+
+          # A. No references to the removed dev design-spec ("spec §N"), and no docs/superpowers/
+          #    pointers, in any shipped file. (CHANGELOG/.gitignore document the removal — exempt.)
+          spec_re = re.compile(r'spec\s+§\s*\d', re.IGNORECASE)
+          exempt = {'CHANGELOG.md', '.gitignore', 'PUBLISH.md'}  # these document the removal/guard, by design
+          for path in glob.glob('**/*', recursive=True):
+              if not os.path.isfile(path):
+                  continue
+              if path.startswith('.git/') or 'node_modules/' in path or path in exempt:
+                  continue
+              if not path.endswith(('.md', '.kt', '.yaml', '.yml', '.json', '.py')):
+                  continue
+              text = open(path, encoding='utf-8', errors='ignore').read()
+              if spec_re.search(text):
+                  fail.append(f'{path}: references removed design spec ("spec §N") — point to shared/schemas.md')
+              if 'docs/superpowers/' in text:
+                  fail.append(f'{path}: references docs/superpowers/ (dev-only, not shipped)')
+
+          # B. Every docs/ or shared/ file path named in skills/ and agents/ must exist on disk
+          #    (catches broken lazy-reference paths).
+          ref_re = re.compile(r'(?:docs|shared)/[A-Za-z0-9_./-]+\.(?:md|kt|yaml|yml)')
+          for path in glob.glob('skills/**/*.md', recursive=True) + glob.glob('agents/*.md', recursive=True):
+              text = open(path, encoding='utf-8', errors='ignore').read()
+              for ref in sorted(set(ref_re.findall(text))):
+                  if not os.path.isfile(ref):
+                      fail.append(f'{path}: broken lazy-reference path -> {ref}')
+
+          if fail:
+              print('Internal reference check FAILED:')
+              for f in fail:
+                  print('  -', f)
+              sys.exit(1)
+          print('Internal reference check: OK')
+          PY
