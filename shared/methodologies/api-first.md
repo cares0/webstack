@@ -17,7 +17,7 @@ webstack's default is **OpenAPI 3.1**, not 3.0. The single biggest reason is **J
 For webstack the practical wins are:
 
 - `@hey-api/openapi-ts` emits richer / more accurate TypeScript and Zod schemas from 3.1 than from 3.0.
-- `springdoc-openapi` 2.8+ emits OpenAPI 3.1 by default for new projects, so the contract-drift check reads the same dialect both sides write.
+- `springdoc-openapi` 3.0.x (the Spring Boot 4 line; 2.x is Boot 3 only) emits OpenAPI 3.1 by default, so the contract-drift check reads the same dialect both sides write.
 - Future tooling (validators, code-gen for other languages) is increasingly 3.1-first.
 
 If a downstream consumer **must** stay on 3.0 (legacy SDK generators, certain API gateways), keep two contracts: the source-of-truth `<feature>.yaml` in 3.1 and a derived 3.0 export. webstack v1 has no such consumers; we author 3.1 exclusively.
