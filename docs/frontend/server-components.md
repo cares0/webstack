@@ -4,7 +4,7 @@
 
 ## What runs where
 
-In the Next.js App Router, components under `app/` default to **Server Components**. They render to HTML on the server, do not ship JavaScript to the client, and may directly read environment variables, call databases, or import server-only libraries (e.g., `fs`, `pg`, ORM clients). Their output is streamed as RSC payload (a serialized React tree) and rehydrated by the client runtime — only as static markup, never with hydration of those components themselves.
+In the Next.js App Router, components under `app/` default to **Server Components**. They render to HTML on the server, do not ship JavaScript to the client, and may directly read environment variables, call databases, or import server-only libraries (e.g., `fs`, `pg`, ORM clients). Their output is streamed as RSC payload (a serialized React tree) and reconciled on the client from that serialized payload — Server Components never hydrate; only Client Components do.
 
 A **Client Component** is opted in by placing the directive `'use client'` at the very top of the file. The file and every module it imports are bundled to JavaScript that ships to the browser. Client Components hydrate on load and may use `useState`, `useEffect`, `useRef`, browser APIs, event handlers, and third-party libraries that depend on the DOM.
 
@@ -79,29 +79,31 @@ The page renders `<ServerOnlyContent />` as RSC output, then passes that already
 - **Mixing imports.** Importing a Client Component from a server file is fine; importing a server-only module (e.g., `import 'fs'`) from a Client Component crashes the build.
 - **Using context to share data the server already had.** Pass it as a prop instead.
 
-## Server Actions (form mutations)
+## Server Actions (FE-only form mutations)
 
-A Server Action is a server-side function callable from a Client Component, typically as a `<form action={...}>` handler or a `useTransition` callback. Mark it with `'use server'`:
+A Server Action is a server-side function callable from a Client Component, typically as a `<form action={...}>` handler or a `useTransition` callback. Mark it with `'use server'`.
+
+**webstack scope (canon).** Server Actions are **not** webstack's path for backend mutations. Operations against the backend domain go FE → generated SDK → Spring via TanStack `useMutation` (see [`docs/frontend/tanstack-query.md`](tanstack-query.md)); there is no `actions.ts` calling a Spring/backend service. Reserve Server Actions for **FE-only** persistence that never leaves the Next.js process — e.g., saving a UI preference or a NextAuth profile blurb:
 
 ```ts
-// app/projects/actions.ts
+// src/features/profile/api/save-blurb-action.ts
 'use server';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 
-const CreateProject = z.object({ name: z.string().min(1) });
+const Blurb = z.object({ blurb: z.string().max(280) });
 
-export async function createProject(formData: FormData) {
-  const parsed = CreateProject.parse({ name: formData.get('name') });
-  await db.project.insert(parsed);
-  revalidatePath('/projects');
+export async function saveProfileBlurb(formData: FormData) {
+  const parsed = Blurb.parse({ blurb: formData.get('blurb') });
+  await savePreference('profile.blurb', parsed.blurb);  // FE-only store, not the Spring backend
+  revalidatePath('/settings/profile');
 }
 ```
 
-Server Actions can be inline (defined in a Server Component file) or extracted to a dedicated `actions.ts`. They serialize their arguments, run on the server, and return a serializable result. The Next.js runtime wires them to a unique endpoint. Always validate inputs (Zod) — a Server Action's URL is callable by anyone who inspects the page.
+Server Actions can be inline (defined in a Server Component file) or extracted to a dedicated file. They serialize their arguments, run on the server, and return a serializable result. The Next.js runtime wires them to a unique endpoint. Always validate inputs (Zod) — a Server Action's URL is callable by anyone who inspects the page.
 
-For form-driven mutations, Server Actions are preferred over Route Handlers: they get progressive enhancement (work without JS), automatic revalidation hooks, and direct access to the request context.
+For these FE-only form mutations, Server Actions beat Route Handlers: they get progressive enhancement (work without JS), automatic revalidation hooks, and direct access to the request context.
 
 ## React 19 form hooks (`useActionState`, `useFormStatus`, `useOptimistic`)
 
@@ -165,7 +167,7 @@ export function CommentForm({ initial }: { initial: Comment[] }) {
 
 ## Type safety across boundary
 
-Props passed from a Server Component to a Client Component are serialized with `React.RSC`'s superset of JSON. **Allowed:**
+Props passed from a Server Component to a Client Component are serialized with the RSC serialization format (a superset of JSON). **Allowed:**
 
 - Primitives: string, number, boolean, null, undefined, BigInt.
 - Plain objects and arrays composed of allowed types.
@@ -198,7 +200,7 @@ Default to Server Components calling the SDK and passing the result as props. Pr
 2. The component needs browser APIs (modals, toasts, tooltips, drag-and-drop).
 3. The data must update without a full route refresh (live dashboards, polling).
 
-Form submissions inside the frontend repo's own surface (e.g., contact forms, profile updates persisted in Supabase via NextAuth) use Server Actions with Zod validation; the Server Action and the form share the same Zod schema from `src/features/<feature>/model/schema.ts`. Form submissions targeting the backend's domain operations call the generated SDK from a Client Component using TanStack Query mutations under `src/features/<feature>/api/mutations.ts`, never duplicating the validation in a Server Action.
+Form submissions inside the frontend repo's own surface (e.g., contact forms, FE-only profile/preference updates via NextAuth) use Server Actions with Zod validation; the Server Action and the form share the same Zod schema from `src/features/<feature>/model/schema.ts`. Form submissions targeting the backend's domain operations call the generated SDK from a Client Component using TanStack Query mutations under `src/features/<feature>/api/mutations.ts` — never a Server Action that proxies the backend.
 
 ## Sources
 
@@ -211,4 +213,4 @@ Form submissions inside the frontend repo's own surface (e.g., contact forms, pr
 - `useFormStatus`: https://react.dev/reference/react-dom/hooks/useFormStatus
 - `useOptimistic`: https://react.dev/reference/react/useOptimistic
 
-Last verified: 2026-04-26 (React 19.x stable).
+Last verified: 2026-06-22 (React 19.x stable).

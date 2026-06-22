@@ -23,7 +23,7 @@ A **strict CSP** eliminates `'unsafe-inline'` and `'unsafe-eval'`. Both undermin
 
 A **nonce** is a cryptographically random single-use token minted server-side per request. It appears in the `Content-Security-Policy` header as `'nonce-<value>'` and as an attribute on every trusted `<script>` and `<style>` tag. The browser executes a script only when its nonce matches the header value — injected markup cannot know the current nonce.
 
-**Trade-off with static rendering.** Nonces require per-request rendering; static pages and CDN-cached HTML cannot carry them. PPR is incompatible with nonce-based CSP for the static shell. For static exports, use hash-based SRI (`experimental.sri` in `next.config.ts`).
+**Trade-off with static rendering.** Nonces require per-request rendering; static pages and CDN-cached HTML cannot carry them. A strict-nonce CSP therefore opts a route out of PPR for its static shell — the `'use cache'` / PPR static shell (see [`frontend/caching-strategies.md`](caching-strategies.md)) cannot embed a per-request nonce. For static exports, use hash-based SRI (`experimental.sri` in `next.config.ts`).
 
 ---
 
@@ -38,7 +38,7 @@ webstack uses `middleware.ts` to generate a per-request nonce, write it to the `
 import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(request: NextRequest): NextResponse {
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+  const nonce = btoa(crypto.randomUUID())   // Edge runtime has no Buffer
   const isDev = process.env.NODE_ENV === 'development'
 
   const cspHeader = `
@@ -170,7 +170,7 @@ pnpm add next-safe
 ```ts
 // next.config.ts
 import type { NextConfig } from 'next'
-const nextSafe = require('next-safe')
+import nextSafe from 'next-safe'
 const isDev = process.env.NODE_ENV !== 'production'
 
 const nextConfig: NextConfig = {
@@ -280,12 +280,14 @@ return isSafeHref(href) ? <a href={href}>{label}</a> : <span>{label}</span>
 
 ## Cookie security
 
-Session and refresh tokens are the highest-value credentials in the application. Cookie attributes are the last line of defense once XSS fires.
+Session and refresh tokens are the highest-value credentials in the application. Cookie attributes are the last line of defense once XSS fires. The cookie names and paths here match [`frontend/auth-frontend.md`](auth-frontend.md), which is the authoritative FE-auth reference:
 
 ```
-Set-Cookie: __Host-session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
-Set-Cookie: __Host-refresh=<token>; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=1209600
+Set-Cookie: __Host-access_token=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=900
+Set-Cookie: __Secure-refresh_token=<token>; HttpOnly; Secure; SameSite=Strict; Path=/api/auth/refresh; Max-Age=1209600
 ```
+
+The refresh token uses `__Secure-` (not `__Host-`) because it is path-scoped to `/api/auth/refresh` — the `__Host-` prefix mandates `Path=/`, so it can only apply to the access token.
 
 ### Attribute reference
 
@@ -304,19 +306,19 @@ Set-Cookie: __Host-refresh=<token>; HttpOnly; Secure; SameSite=Strict; Path=/; M
 `__Host-` locks a cookie to the exact host that set it and requires `Secure`, `Path=/`, and no `Domain` attribute, preventing leakage to subdomains (subdomain takeover) and alternative ports:
 
 ```
-Set-Cookie: __Host-session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/
+Set-Cookie: __Host-access_token=<token>; HttpOnly; Secure; SameSite=Lax; Path=/
 ```
 
-Use `__Host-` for all webstack session and refresh token cookies.
+Use `__Host-` for the access-token cookie (it is `Path=/`). The refresh token is path-scoped to `/api/auth/refresh`, so it uses `__Secure-` instead — `__Host-` would forbid the narrower path.
 
 ### Token storage summary
 
 | Token | Where | Why |
 |-------|-------|-----|
 | Access token (15 min) | React state / memory | Short TTL limits blast radius of XSS. Never `localStorage`. |
-| Refresh token (14 days) | `__Host-refresh; HttpOnly; Secure; SameSite=Strict` | JavaScript-inaccessible; rotated on every use. |
+| Refresh token (14 days) | `__Secure-refresh_token; HttpOnly; Secure; SameSite=Strict; Path=/api/auth/refresh` | JavaScript-inaccessible; rotated on every use. |
 
-Cookies are set by the Spring Boot backend on `/api/auth/token` responses. The frontend never writes session or refresh cookies — it reads the access token from the JSON body and holds it in memory.
+Cookies are set by the Spring Boot backend on `/api/auth/login` and `/api/auth/refresh` responses (see [`frontend/auth-frontend.md`](auth-frontend.md)). The frontend never writes session or refresh cookies — it reads the access token from the JSON body and holds it in memory.
 
 ---
 
@@ -334,7 +336,7 @@ XSS is classified under A03: untrusted data injected into an HTML context the br
 | Stored XSS via rich-text / CMS content | `DOMPurify.sanitize()` before `dangerouslySetInnerHTML`. |
 | DOM-based XSS via `javascript:` href | `isSafeHref()` validation before rendering user-provided links. |
 | Injected script execution | Strict CSP nonce blocks scripts without the current-request nonce. |
-| Server Action input injection | Zod schema parses every Server Action input before the application layer. |
+| Mutation payload injection | Zod parses form input client-side; the authoritative validation runs in Spring (mutations go FE → generated SDK → Spring via TanStack `useMutation`, not Server Actions — see [`frontend/tanstack-query.md`](tanstack-query.md)). |
 
 ### A07 — Identification & Authentication Failures
 
@@ -380,4 +382,4 @@ Session token theft via XSS leads to authentication failure — the attacker ass
 
 ---
 
-Last verified: 2026-05-04 (Next.js 16.X / React 19 / DOMPurify 3.X / next-safe (latest)).
+Last verified: 2026-06-22 (Next.js 16.X / React 19 / DOMPurify 3.X / next-safe (latest)).

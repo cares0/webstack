@@ -7,6 +7,8 @@
 
 webstack frontends target **WCAG 2.2 AA** conformance as the production baseline. WCAG 2.2 (October 2023) supersedes 2.1 with nine new success criteria covering mobile accessibility, cognitive accessibility, and pointer input.
 
+**Two-tier baseline (reconciled with [`testing-strategy.md`](testing-strategy.md)):** WCAG **2.1 AA is the automated CI gate** — the rules axe-core enforces out of the box and that block a PR. WCAG **2.2 AA is the manual / target baseline** — the 2.2-specific criteria (target size, focus appearance, accessible authentication) are verified manually and via the opt-in `wcag22aa` axe tag, since axe cannot fully cover them.
+
 The stack is built on **ShadCN UI + Radix Primitives**. Radix implements WAI-ARIA Authoring Practices 1.2 patterns out of the box: focus trapping in dialogs, roving tabindex in composite widgets, `aria-expanded`/`aria-selected` state toggling, and Esc-key dismissal. The webstack a11y contract is:
 
 - **Trust Radix** for widget-level semantics — do not override its ARIA attributes without understanding the WAI-ARIA pattern.
@@ -317,4 +319,4 @@ Playwright MCP is for exploratory, ad-hoc inspection during development. Use `@a
 - **WAI-ARIA Authoring Practices 1.2:** https://www.w3.org/WAI/ARIA/apg/ — _authoritative_
 - **WebAIM contrast checker:** https://webaim.org/resources/contrastchecker/ — _community: WebAIM_
 
-Last verified: 2026-05-04 (axe-core 4.10 / Playwright 1.X / WCAG 2.2 / React 19 / Next.js 16.X).
+Last verified: 2026-06-22 (axe-core 4.10 / Playwright 1.X / WCAG 2.2 / React 19 / Next.js 16.X).

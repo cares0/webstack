@@ -127,6 +127,8 @@ Generated utilities from the above: `bg-primary`, `text-secondary`, `font-sans`,
 - Default `@theme` (build-time): Tailwind resolves variable values at build time and generates static utility CSS. Use this for most tokens.
 - `@theme inline`: The generated utility references the CSS variable at _runtime_ rather than inlining its value. Needed when your token value is itself a CSS variable (e.g., `--font-sans: var(--font-inter)`), so that runtime overrides propagate correctly.
 
+**Sanctioned ShadCN exception to "tokens only in `@theme`".** ShadCN's theming maps `@theme inline { --color-background: var(--background); … }` to a separate `:root { --background: …; } .dark { … }` block. This two-variable indirection is **deliberate and allowed** — it is what lets a `class="dark"` toggle swap the underlying `--background` at runtime while Tailwind utilities (`bg-background`) keep resolving through the `@theme inline` alias. It does **not** violate the duplicate-`:root` anti-pattern below, because the names differ: `@theme inline` declares `--color-*`, while `:root` declares the bare `--background`/`--foreground`/etc. that those aliases point at. See [`docs/frontend/shadcn-customization.md`](shadcn-customization.md) § "CSS variables theming".
+
 **Token override semantics:**
 
 - Adding tokens to `@theme {}` extends the defaults — existing Tailwind tokens are preserved.
@@ -175,7 +177,7 @@ When you declare a token in `@theme`, Tailwind does two things automatically:
 }
 ```
 
-Defining the same variable in both `:root {}` and `@theme {}` creates a specificity conflict. The `:root` declaration and the `@theme`-emitted `:root` declaration occupy the same cascade layer; whichever appears last in the file wins, silently breaking the other. Keep all design tokens exclusively in `@theme`.
+Defining the **same** variable in both `:root {}` and `@theme {}` creates a specificity conflict. The `:root` declaration and the `@theme`-emitted `:root` declaration occupy the same cascade layer; whichever appears last in the file wins, silently breaking the other. Keep brand tokens in `@theme`. (The ShadCN `@theme inline` + `:root` pattern is **not** this anti-pattern — it uses two _different_ variable names, `--color-*` aliasing the bare `--background`/etc.; see the sanctioned exception under [`@theme` vs `@theme inline`](#css-first-config-theme) above.)
 
 ## @theme directive
 
@@ -354,7 +356,7 @@ const button = cva("rounded-md px-4 py-2 font-semibold shadow-sm", {
 
 ### 7. Redefining design tokens in `:root` alongside `@theme`
 
-See the _Anti-pattern_ note in the [Tokens via CSS variables](#tokens-via-css-variables) section above. Keep all tokens in `@theme` only.
+See the _Anti-pattern_ note in the [Tokens via CSS variables](#tokens-via-css-variables) section above. Keep brand tokens in `@theme` — the only sanctioned `:root` companion is the ShadCN `@theme inline` aliasing pattern (different variable names), documented above.
 
 ## Plugins in v4
 
@@ -388,4 +390,4 @@ In every webstack-generated frontend repo:
 - **Lightning CSS:** https://lightningcss.dev — _authoritative_
 - **ofershap/tailwind-best-practices (v4 AI rules):** https://github.com/ofershap/tailwind-best-practices — _community: ofershap_
 
-Last verified: 2026-05-03 (Tailwind v4.x stable).
+Last verified: 2026-06-22 (Tailwind v4.x stable).

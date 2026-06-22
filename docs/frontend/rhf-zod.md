@@ -39,7 +39,7 @@ export const ProjectFormSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-]+$/, 'Lowercase, numbers, dashes only'),
   description: z.string().max(500).optional(),
   visibility: z.enum(['public', 'private']),
-  tagIds: z.array(z.string().uuid()).default([]),
+  tagIds: z.array(z.uuid()).default([]),   // Zod v4 top-level; z.string().uuid() is deprecated
 });
 
 export type ProjectFormValues = z.infer<typeof ProjectFormSchema>;
@@ -111,27 +111,34 @@ export function ProjectForm({ onSubmit }: { onSubmit: (values: ProjectFormValues
 
 ## Server-side validation consistency
 
-The Zod schema is shared between client and server. The frontend uses it for instant feedback; the server (Next.js Server Action or backend BFF) **must** re-parse the same schema before any side effect, because the client validation is advisory — anyone can call the action with crafted payloads.
+Client-side Zod is **advisory** — anyone can call the endpoint with crafted payloads, so validation must also run authoritatively on the server. In webstack the server is the separate Spring backend: the form's `onSubmit` calls the generated SDK (FE → SDK → Spring) via a TanStack `useMutation`, and Spring re-validates against the OpenAPI contract. Backend mutations do **not** go through a Next.js Server Action.
 
-```ts
-// src/features/create-project/api/actions.ts
-'use server';
+```tsx
+// src/features/create-project/api/mutations.ts
+'use client';
 
-import { ProjectFormSchema } from '../model/schema';
+import { useMutation } from '@tanstack/react-query';
+import { ProjectsService } from '@/shared/api/generated';
+import { ProjectFormSchema, type ProjectFormValues } from '../model/schema';
 
-export async function createProject(values: unknown) {
-  const parsed = ProjectFormSchema.parse(values); // throws on invalid → 400 to client
-  await db.project.insert(parsed);
+export function useCreateProject() {
+  return useMutation({
+    // client-side parse for instant feedback; Spring is the authoritative validator
+    mutationFn: (values: ProjectFormValues) =>
+      ProjectsService.createProject({ body: ProjectFormSchema.parse(values) }),
+  });
 }
 ```
 
-When the backend is a separate service (the typical webstack split), the OpenAPI spec generates server-side validation (the `code-reviewer` SubAgent verifies request bodies match). The frontend's Zod schema mirrors that contract; if the OpenAPI emits matching Zod via `@hey-api/openapi-ts`, prefer the generated schema and only hand-author when generation is insufficient.
+The frontend's Zod schema mirrors the OpenAPI contract that the backend enforces (the `code-reviewer` SubAgent verifies request bodies match). If the OpenAPI emits matching Zod via `@hey-api/openapi-ts`, prefer the generated schema and only hand-author when generation is insufficient.
 
-## Async submit + Server Action
+## Async submit + SDK mutation
 
-`form.handleSubmit` accepts an async function. RHF tracks `formState.isSubmitting` automatically:
+`form.handleSubmit` accepts an async function. RHF tracks `formState.isSubmitting` automatically. Call the mutation's `mutateAsync` (from the `useCreateProject` hook above) so a rejected SDK call maps to RHF error state:
 
 ```tsx
+const { mutateAsync: createProject } = useCreateProject();
+
 const onSubmit = async (values: ProjectFormValues) => {
   try {
     await createProject(values);
@@ -160,6 +167,7 @@ const Schema = z
   })
   .superRefine((data, ctx) => {
     if (data.plan === 'free' && data.seats > 5) {
+      // verify the addIssue shape against pinned Zod v4 — v4 also offers `.check()` as the newer form
       ctx.addIssue({ code: 'custom', path: ['seats'], message: 'Free plan allows up to 5 seats' });
     }
   });
@@ -194,7 +202,7 @@ Customize default Zod messages on the schema itself rather than rewriting them i
 
 webstack uses FSD-lite (see `docs/frontend/fsd-architecture.md`); RHF + Zod placement maps to layers:
 
-- **One schema per feature slice**: `src/features/<feature>/model/schema.ts` exports the Zod schemas and inferred types. Both the form component (`src/features/<feature>/ui/<Form>.tsx`) and any colocated Server Action (`src/features/<feature>/api/actions.ts`) import from it.
+- **One schema per feature slice**: `src/features/<feature>/model/schema.ts` exports the Zod schemas and inferred types. Both the form component (`src/features/<feature>/ui/<Form>.tsx`) and the TanStack mutation (`src/features/<feature>/api/mutations.ts`) import from it — as does any FE-only Server Action, on the rare paths that use one.
 - **ShadCN form primitives** are imported from `@/shared/ui/form`, `@/shared/ui/input`, etc.
 - **Generated SDK schemas first**: if `@hey-api/openapi-ts` emits a Zod schema for the request body, import it from `@/shared/api/generated` and use it as the form's resolver schema. Hand-author only when the form needs additional client-only fields (e.g., a confirmation toggle) — extend with `Schema.extend({ confirm: z.literal(true) })`.
 - **Server Action vs SDK call**: form submissions targeting backend domain operations call the generated SDK from inside `onSubmit` (with TanStack Query mutations under `src/features/<feature>/api/mutations.ts` — see `docs/frontend/tanstack-query.md`). Use Server Actions (`src/features/<feature>/api/actions.ts`) for forms whose persistence is FE-only (e.g., NextAuth profile edits).
@@ -210,4 +218,4 @@ For complex form patterns (multi-step, file upload, optimistic UI, Server Action
 - @hookform/resolvers: https://react-hook-form.com/get-started#SchemaValidation
 - ShadCN form component: https://ui.shadcn.com/docs/components/form
 
-Last verified: 2026-04-26 (Zod v4 stable; v3 still receives security fixes — webstack defaults to v4).
+Last verified: 2026-06-22 (Zod v4 stable; v3 still receives security fixes — webstack defaults to v4).

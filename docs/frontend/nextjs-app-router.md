@@ -21,7 +21,7 @@ app/
 ├── (marketing)/            # route group: not in URL
 │   ├── about/page.tsx      # /about
 │   └── pricing/page.tsx    # /pricing
-├── (dashboard)/            # parallel route group with own layout
+├── (dashboard)/            # route group with own layout (parallel routes are @slot, below)
 │   ├── layout.tsx
 │   └── projects/
 │       ├── page.tsx                    # /projects

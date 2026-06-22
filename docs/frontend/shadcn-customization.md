@@ -113,7 +113,7 @@ In webstack: the design-system-architect produces `design-system/theme.css` with
 
 ```tsx
 import { cva, type VariantProps } from 'class-variance-authority';
-import { cn } from '@/lib/utils';
+import { cn } from '@/shared/lib/utils';   // webstack relocates utils to src/shared/lib/ (components.json `aliases.utils`)
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50',
@@ -203,7 +203,7 @@ webstack frontends use FSD-lite (see `docs/frontend/fsd-architecture.md`); ShadC
 - Composite UI for a domain entity (e.g., `<ProjectCard>`) lives at `src/entities/<entity>/ui/` and imports primitives from `@/shared/ui`.
 - Composite UI for a user action / feature (e.g., `<CreateProjectForm>`) lives at `src/features/<feature>/ui/` and imports both primitives from `@/shared/ui` and entity components from `@/entities/<entity>` as needed.
 - Page-level chrome (header, sidebar, dashboard layout) lives at `src/widgets/<widget>/`.
-- The OpenAPI-generated TypeScript SDK lives at `src/shared/api/generated/` and is gitignored or marked generated; design-system-architect and code-reviewer skip it.
+- The OpenAPI-generated TypeScript SDK lives at `src/shared/api/generated/` and is committed, read-only, and regenerated via `pnpm gen:api`; design-system-architect and code-reviewer skip it.
 - `theme.css` and any custom `cva` extensions are tracked under `src/app/globals.css` and `src/shared/ui/<component>.tsx` respectively; never duplicated.
 - When ShadCN ships an upstream improvement to a component already vendored, the build-fe SubAgent regenerates the file at `src/shared/ui/<component>.tsx`, then re-applies webstack-specific cva variants from `design-system/component-variants.md`.
 
@@ -214,4 +214,4 @@ webstack frontends use FSD-lite (see `docs/frontend/fsd-architecture.md`); ShadC
 - class-variance-authority: https://cva.style/docs
 - Radix UI primitives: https://www.radix-ui.com/primitives
 
-Last verified: 2026-04-26 (ShadCN CLI 2.x stable, "new-york" default style, OKLCH color tokens).
+Last verified: 2026-06-22 (ShadCN CLI 2.x stable, "new-york" default style, OKLCH color tokens).

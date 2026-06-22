@@ -30,7 +30,7 @@ Secondary considerations:
 
 Convention matches [`recipes/spring-security-auth.md`](../recipes/spring-security-auth.md):
 
-- **Access token** — 15-min JWT, httpOnly cookie `__Host-access_token`, `Path=/`. Sent automatically on same-origin requests. Decoded payload (userId, roles) also held in a Zustand/Jotai store for UI decisions — the raw token is never exposed to JS.
+- **Access token** — 15-min JWT, httpOnly cookie `__Host-access_token`, `Path=/`. Sent automatically on same-origin requests. Decoded payload (userId, roles) also held in a Zustand store (Zustand-only per [`frontend/client-state.md`](client-state.md)) for UI decisions — the raw token is never exposed to JS.
 - **Refresh token** — 14-day JWT, httpOnly cookie `__Secure-refresh_token`, `Path=/api/auth/refresh`. Never readable by JS; sent automatically only to that path.
 - Spring Security sets both cookies in `POST /api/auth/login` and `POST /api/auth/refresh`. The frontend never constructs `Set-Cookie` headers.
 - Cookie verification in Server Actions uses `cookies()` from `next/headers` — server-only, never client-side.
@@ -61,38 +61,31 @@ On the frontend, hold only the decoded payload in an in-memory Zustand store (`s
 
 ## Refresh rotation
 
-The backend rotates the refresh token on every use: `POST /api/auth/refresh` invalidates the old pair and issues a new one. The frontend must silently handle 401 responses and deduplicate concurrent refresh calls so only one refresh fires while others queue.
+The backend rotates the refresh token on every use: `POST /api/auth/refresh` invalidates the old pair and issues a new one. The frontend must silently handle 401 responses and deduplicate concurrent refresh calls so only one refresh fires while the others await it.
 
 ```ts
 // src/features/auth/api/client.ts
+// One shared in-flight refresh. The leader (first 401) starts it; concurrent
+// callers await the SAME promise, so only one refresh fires and every caller
+// then retries its request exactly once with identical semantics.
 let refreshPromise: Promise<void> | null = null
-const pending: Array<{ resolve: () => void; reject: (e: unknown) => void }> = []
 
-async function runRefresh(): Promise<void> {
-  const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
-  if (!res.ok) {
-    pending.forEach(({ reject }) => reject(new Error('session expired')))
-    pending.length = 0
-    window.location.replace('/login')
-    throw new Error('refresh failed')
-  }
-  pending.forEach(({ resolve }) => resolve())
-  pending.length = 0
+function runRefresh(): Promise<void> {
+  return (refreshPromise ??= (async () => {
+    const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })
+    if (!res.ok) {
+      window.location.replace('/login')
+      throw new Error('session expired')
+    }
+  })().finally(() => { refreshPromise = null }))
 }
 
 export async function apiFetch(input: RequestInfo, init?: RequestInit): Promise<Response> {
   const res = await fetch(input, { ...init, credentials: 'include' })
   if (res.status !== 401) return res
 
-  if (!refreshPromise) {
-    refreshPromise = runRefresh().finally(() => { refreshPromise = null })
-  } else {
-    await new Promise<void>((resolve, reject) => pending.push({ resolve, reject }))
-    return fetch(input, { ...init, credentials: 'include' })
-  }
-
-  await refreshPromise
-  return fetch(input, { ...init, credentials: 'include' })
+  await runRefresh()                                    // leader and followers await the same promise
+  return fetch(input, { ...init, credentials: 'include' }) // retry once
 }
 ```
 
@@ -108,11 +101,15 @@ The route guard lives in `middleware.ts` at the project root and redirects unaut
 // middleware.ts  (project root)
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
+import { jwtVerify, importSPKI } from 'jose'
 
 const PUBLIC = new Set(['/login', '/register', '/forgot-password'])
 const PROTECTED = /^\/(dashboard|settings|profile|admin)(\/.*)?$/
-const secretKey = new TextEncoder().encode(process.env.JWT_PUBLIC_KEY ?? '')
+
+// RS256: the FE holds only the PUBLIC key (SPKI PEM). Import it once per module.
+let publicKey: Promise<CryptoKey> | null = null
+const getPublicKey = () =>
+  (publicKey ??= importSPKI(process.env.JWT_PUBLIC_KEY ?? '', 'RS256'))
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -124,7 +121,7 @@ export async function middleware(request: NextRequest) {
   if (!token) return NextResponse.redirect(new URL(`/login?returnTo=${returnTo}`, request.url))
 
   try {
-    await jwtVerify(token, secretKey, { algorithms: ['HS256'] })
+    await jwtVerify(token, await getPublicKey(), { algorithms: ['RS256'] })
     return NextResponse.next()
   } catch {
     const res = NextResponse.redirect(new URL(`/login?returnTo=${returnTo}`, request.url))
@@ -147,19 +144,20 @@ const target = typeof returnTo === 'string' && returnTo.startsWith('/') ? return
 redirect(target)
 ```
 
-## Server Action session check
+## Server Component / Server Action session check
 
-Server Actions have no automatic session context. Read the cookie explicitly, then verify the JWT. Wrap in React's `cache()` so the crypto call runs once per render pass even if multiple components call `getSession()`.
+The `middleware.ts` route guard is the single authoritative gate for navigations. `getSession()` re-verifies for one reason: Server Components and Server Actions also need the **decoded payload** (`sub`, `roles`) for data scoping and role gating, and the matcher excludes paths the middleware never sees. Re-verifying the signature here (rather than trusting an unsigned decode) keeps that read trustworthy. Read the cookie explicitly, then verify the JWT. Wrap in React's `cache()` so the crypto call runs once per render pass even if multiple components call `getSession()`.
 
 ```ts
 // src/shared/lib/auth.ts
 import 'server-only'
 import { cookies } from 'next/headers'
-import { jwtVerify, type JWTPayload } from 'jose'
+import { jwtVerify, importSPKI, type JWTPayload } from 'jose'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
 
-const secretKey = new TextEncoder().encode(process.env.JWT_PUBLIC_KEY ?? '')
+// Same PUBLIC RS256 key as the middleware. The FE never holds a private/shared secret.
+const getPublicKey = cache(() => importSPKI(process.env.JWT_PUBLIC_KEY ?? '', 'RS256'))
 
 export interface SessionPayload extends JWTPayload {
   sub: string      // userId
@@ -170,7 +168,7 @@ export const getSession = cache(async (): Promise<SessionPayload> => {
   const token = (await cookies()).get('__Host-access_token')?.value
   if (!token) redirect('/login')
   try {
-    const { payload } = await jwtVerify(token, secretKey, { algorithms: ['HS256'] })
+    const { payload } = await jwtVerify(token, await getPublicKey(), { algorithms: ['RS256'] })
     return payload as SessionPayload
   } catch {
     redirect('/login')
@@ -186,9 +184,11 @@ import { getSession } from '@/shared/lib/auth'
 
 export async function updateProfileAction(formData: FormData) {
   const session = await getSession()   // redirects to /login if token invalid
-  await updateUser(session.sub, { name: String(formData.get('name')) })
+  await updateUser(session.sub, { name: String(formData.get('name')) })  // FE-only profile store
 }
 ```
+
+This snippet illustrates the `getSession()` gate, not a backend mutation: `updateUser` here is an **FE-only** persistence call (e.g., a NextAuth profile field). Backend domain mutations go FE → generated SDK → Spring via TanStack `useMutation` (see [`frontend/tanstack-query.md`](tanstack-query.md)), where the same `getSession()` payload scopes the request — not a Server Action. `getSession()` is equally usable from a Server **Component**.
 
 For role gating, check `session.roles.includes('admin')` after `getSession()` returns and throw or return early.
 
@@ -231,7 +231,7 @@ If the backend maintains a refresh token revocation list, also call `POST /api/a
 
 **Infinite refresh loop.** The middleware deletes the invalid access token cookie on redirect to `/login`. Do not retry `POST /api/auth/refresh` more than once — a second failure means the session is gone. Redirect immediately or the browser's loop-detection will force a hard stop.
 
-**`NEXT_PUBLIC_` prefix on the JWT key.** Variables with that prefix are inlined into the browser bundle. Keep `JWT_PUBLIC_KEY` server-only; the browser never needs to verify tokens.
+**`NEXT_PUBLIC_` prefix on the JWT key.** `JWT_PUBLIC_KEY` is the RS256 **public** key — exposing it is not a credential leak (it is genuinely public, and verification with it cannot mint tokens). But verification happens server-side in the middleware and `getSession()`, so the browser never needs it; keep it server-only rather than inlining it into the bundle. What must never reach the FE is a shared/symmetric secret — RS256 keeps the signing (private) key on the backend alone.
 
 ## Sources
 
@@ -241,4 +241,4 @@ If the backend maintains a refresh token revocation list, also call `POST /api/a
 - **Next.js middleware file convention:** https://nextjs.org/docs/app/api-reference/file-conventions/middleware — _authoritative_
 - **Spring Security backend pairing:** `recipes/spring-security-auth.md` — _community: webstack_
 
-Last verified: 2026-05-04 (Next.js 16.X / React 19 / Spring Security 7.X / OWASP).
+Last verified: 2026-06-22 (Next.js 16.X / React 19 / Spring Security 7.X / OWASP).

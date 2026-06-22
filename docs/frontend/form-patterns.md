@@ -77,8 +77,9 @@ Define sub-schemas per step and merge for final submission. Pass each sub-schema
 
 ```typescript
 const StepOneSchema = z.object({ name: z.string().min(1), plan: z.enum(['free', 'pro']) })
-const StepTwoSchema = z.object({ seats: z.number().int().min(1), billingEmail: z.string().email() })
-export const WizardSchema = StepOneSchema.merge(StepTwoSchema)
+const StepTwoSchema = z.object({ seats: z.number().int().min(1), billingEmail: z.email() })
+// Zod v4: .merge() is removed — use .extend() (or spread the .shape)
+export const WizardSchema = StepOneSchema.extend(StepTwoSchema.shape)
 ```
 
 ## Dynamic field arrays
@@ -95,7 +96,7 @@ import { Form, FormField, FormItem, FormControl, FormMessage } from '@/shared/ui
 import { Input } from '@/shared/ui/input'
 import { Button } from '@/shared/ui/button'
 
-const Schema = z.object({ members: z.array(z.object({ email: z.string().email() })).min(1) })
+const Schema = z.object({ members: z.array(z.object({ email: z.email() })).min(1) })
 
 export function InviteForm() {
   const form = useForm({ resolver: zodResolver(Schema), defaultValues: { members: [{ email: '' }] } })
@@ -218,11 +219,13 @@ export function useCreateTask() {
 
 The three-hook triple is required: `onMutate` snapshots and patches; `onError` rolls back; `onSettled` invalidates to converge with server truth. Mark optimistic entries with `_optimistic: true` so the UI can dim unconfirmed items.
 
-**Idempotency keys.** For mutations that must not apply twice (charges, emails, state transitions), include `idempotencyKey: crypto.randomUUID()` in the request body. The backend deduplicates on the key. Reference: backend idempotency patterns (covered in `docs/backend/api-versioning.md` and `docs/cross-cutting/rest-api-design.md` — both arriving in Phase C).
+**Idempotency keys.** For mutations that must not apply twice (charges, emails, state transitions), include `idempotencyKey: crypto.randomUUID()` in the request body. The backend deduplicates on the key. Reference: backend idempotency patterns (covered in `docs/backend/api-versioning.md` and `docs/cross-cutting/rest-api-design.md`).
 
 **Simple case.** When only one component needs the optimistic value, skip cache manipulation and read from `variables` on the pending mutation: `const display = isPending ? [...items, { ...variables, _optimistic: true }] : items`.
 
 ## Server Action ↔ RHF
+
+> **Scope (canon).** webstack routes **backend** mutations through the generated SDK + TanStack `useMutation` (FE → SDK → Spring), not Server Actions — see [`docs/frontend/tanstack-query.md`](tanstack-query.md). The `useActionState` and `startTransition` patterns below are for **FE-only** form persistence (e.g., NextAuth profile edits); `userService`/`createProject` here stand in for that FE-only path, not a Spring domain call.
 
 ### useActionState (React 19)
 
@@ -321,4 +324,4 @@ On return, show a recovery banner (`role="status"`, Restore / Discard) rather th
 - **TkDodo — Practical React Query (optimistic updates patterns):** https://tkdodo.eu/blog/practical-react-query — _community: TanStack Query maintainer_
 - **react-hook-form/examples (multi-step + dynamic arrays):** https://github.com/react-hook-form/react-hook-form/tree/master/examples — _community: RHF maintainers (open examples)_
 
-Last verified: 2026-05-04 (RHF 7.X / TanStack Query 5.X / Next.js 16.X / React 19 / Zod 4.X).
+Last verified: 2026-06-22 (RHF 7.X / TanStack Query 5.X / Next.js 16.X / React 19 / Zod 4.X).

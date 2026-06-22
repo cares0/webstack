@@ -17,7 +17,7 @@ The two libraries coexist without overlap — see `docs/frontend/tanstack-query.
 
 ## Why Zustand
 
-Zustand is the de-facto client state library for Next.js App Router. Vercel's examples, Linear, OpenAI's ChatGPT web frontend, and Cal.com all use it.
+Zustand is a widely-adopted client state library for the Next.js App Router, with a small API and first-class TypeScript support.
 
 **vs Redux / Redux Toolkit.** Redux requires `Provider`, `configureStore`, `createSlice`, `useSelector`, and `useDispatch`. Zustand requires none of that — a store is a hook, no provider needed. Immer integration and DevTools are each a one-line middleware. The result is 3–4× less boilerplate for the same capabilities.
 
@@ -43,7 +43,7 @@ For global UI state, define typed slices and compose them into `useUiStore` — 
 ```typescript
 // src/shared/store/sidebarSlice.ts
 import { StateCreator } from 'zustand'
-// import type { ModalSlice } from './modalSlice'
+import type { ModalSlice } from './modalSlice'
 export type SidebarSlice = { sidebarOpen: boolean; toggleSidebar: () => void }
 export const createSidebarSlice: StateCreator<
   SidebarSlice & ModalSlice, [['zustand/immer', never], ['zustand/devtools', never]], [], SidebarSlice
@@ -202,6 +202,8 @@ export function useHydratedStore<T, S>(
 
 Guard on `undefined` to keep server and first-paint renders identical. The alternative is `persist`'s `skipHydration: true` option with a manual `store.persist.rehydrate()` call inside `useEffect`.
 
+Use `useHydratedStore` **only for `persist`-backed stores** — those are the ones whose first-paint value can diverge from the server render. For a non-persisted store the initial state is identical on server and client, so reading it directly is correct; wrapping it in `useHydratedStore` only introduces a needless `undefined` first paint (a content flash). When in doubt, prefer scoping the deferral to the persisted store via `skipHydration` over applying this hook broadly.
+
 > **Warning:** If `selector` returns a new object or array on every call (e.g., `(s) => ({ a: s.a, b: s.b })`), `useHydratedStore` will re-render infinitely. Wrap such selectors with `useShallow` from `zustand/shallow`.
 
 ## Decision tree: TanStack Query vs Zustand
@@ -259,4 +261,4 @@ Does the data originate from the server?
 
 ---
 
-Last verified: 2026-05-04 (Zustand 5.x / React 19 / Next.js 16.x).
+Last verified: 2026-06-22 (Zustand 5.x / React 19 / Next.js 16.x).

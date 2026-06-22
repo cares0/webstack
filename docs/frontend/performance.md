@@ -254,6 +254,8 @@ const nextConfig: NextConfig = { cacheComponents: true }  // enable 'use cache' 
 export default withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' })(nextConfig)
 ```
 
+> The `next.config.ts` snippets across these docs are partial. The canonical merged config — composing `withBundleAnalyzer`, `withSentryConfig` (see `docs/frontend/error-monitoring.md`), the next-intl plugin (`docs/frontend/i18n.md`), and `next-safe` headers (`docs/frontend/frontend-security.md`) around a single base `NextConfig` — is assembled by `/webstack:init`. Treat each snippet here as one layer of that wrapper chain, not a standalone file.
+
 Add `"analyze": "ANALYZE=true next build"` to `package.json` scripts and run `pnpm analyze`. The **client** treemap is the relevant one for performance.
 
 ### What to look for
@@ -329,11 +331,11 @@ export default function DashboardPage() {
 
 ## Anti-patterns
 
-**모든 컴포넌트에 `'use client'` 추가.** `'use client'` at page or layout level forces the entire subtree into the client bundle, eliminating RSC benefits and inflating initial JS. Put the directive on the smallest interactive leaf. See `docs/frontend/server-components.md`.
+**Adding `'use client'` to every component.** `'use client'` at page or layout level forces the entire subtree into the client bundle, eliminating RSC benefits and inflating initial JS. Put the directive on the smallest interactive leaf. See `docs/frontend/server-components.md`.
 
-**큰 라이브러리 무차별 import.** A top-level `import _ from 'lodash'` includes the entire library in the initial bundle. Use named imports for tree-shakeable packages and `next/dynamic` for non-tree-shakeable ones. Run `pnpm analyze` before merging any PR that adds a dependency.
+**Importing large libraries indiscriminately.** A top-level `import _ from 'lodash'` includes the entire library in the initial bundle. Use named imports for tree-shakeable packages and `next/dynamic` for non-tree-shakeable ones. Run `pnpm analyze` before merging any PR that adds a dependency.
 
-**Image optimization 비활성화.** `unoptimized={true}` disables WebP/AVIF conversion and `srcset` generation, worsening LCP directly. Only use it for images that require auth headers. Never set `images: { unoptimized: true }` globally.
+**Disabling image optimization.** `unoptimized={true}` disables WebP/AVIF conversion and `srcset` generation, worsening LCP directly. Only use it for images that require auth headers. Never set `images: { unoptimized: true }` globally.
 
 **Blocking fonts.** A raw `<link href="https://fonts.googleapis.com/...">` in `app/layout.tsx` adds a cross-origin round trip to the critical path and causes FOIT/FOUT. Always use `next/font/google` or `next/font/local` — fonts are self-hosted at build time.
 
@@ -351,4 +353,4 @@ export default function DashboardPage() {
 - **Vercel Speed Insights:** https://vercel.com/docs/speed-insights — _authoritative; RUM collection, Hobby tier availability, dashboard metrics_
 - **GoogleChrome/web-vitals library:** https://github.com/GoogleChrome/web-vitals — _community: Google Chrome team; onLCP, onINP, onCLS API, sendBeacon reporting pattern_
 
-Last verified: 2026-05-04 (Next.js 16.2.4 / React 19 / Vercel Speed Insights / Web Vitals).
+Last verified: 2026-06-22 (Next.js 16.2.4 / React 19 / Vercel Speed Insights / Web Vitals).

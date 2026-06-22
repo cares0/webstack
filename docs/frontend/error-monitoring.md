@@ -6,7 +6,7 @@
 
 ## What is error monitoring in webstack
 
-webstack uses **Sentry** (SDK 8.X) as its first-pick error monitoring tool. `@sentry/nextjs` instruments the Next.js 16 App Router across three runtimes simultaneously — browser, Node.js server, and edge — producing a unified view of errors regardless of where in the RSC pipeline they originate.
+webstack uses **Sentry** (SDK 9.x) as its first-pick error monitoring tool. `@sentry/nextjs` instruments the Next.js 16 App Router across three runtimes simultaneously — browser, Node.js server, and edge — producing a unified view of errors regardless of where in the RSC pipeline they originate.
 
 Two capabilities drive the choice:
 
@@ -40,7 +40,7 @@ The `@sentry/nextjs` package includes the core JavaScript SDK, Next.js-specific 
 
 ### SDK initialisation files
 
-Sentry 8.X with Next.js 16 uses three runtime-specific files plus `instrumentation.ts` for server-side registration.
+Sentry 9.x with Next.js 16 uses three runtime-specific files plus `instrumentation.ts` for server-side registration.
 
 **`instrumentation-client.ts`** — browser runtime (co-located at project root, not inside `src/`):
 
@@ -128,6 +128,8 @@ export default withSentryConfig(nextConfig, {
 })
 ```
 
+The nesting of `deleteSourcemapsAfterUpload` under `sourcemaps` (verify against pinned @sentry/nextjs 9.x) has moved between SDK majors — older versions accepted it as a top-level option. Confirm the shape against the pinned version before relying on it.
+
 ### Environment variables
 
 | Variable | Context | Purpose |
@@ -178,7 +180,7 @@ npx @sentry/mcp-server@latest auth login
 
 ### What the agent can do
 
-The Sentry MCP server exposes 19 tools. The build-fe SubAgent uses them to:
+The Sentry MCP server exposes ~20 tools. The build-fe SubAgent uses them to:
 
 - **Query issues:** `search_issues` translates natural language into Sentry query syntax. "Find all TypeError crashes on the dashboard page in the last 7 days" returns structured issue data with stack traces.
 - **Inspect events:** `search_events` retrieves individual error events with full context — breadcrumbs, user agent, replay link.
@@ -290,26 +292,28 @@ export class AnalyticsErrorBoundary extends Component<Props, State> {
 
 Wrap in the widget layer: `<AnalyticsErrorBoundary fallback={<p>Chart unavailable.</p>}><AnalyticsDashboard /></AnalyticsErrorBoundary>`.
 
-### Server Action error capture
+### Mutation error capture
 
-Capture errors from Server Actions explicitly to add structured context. Do not rely solely on `onRequestError`:
+Backend mutations in webstack go FE → generated SDK → Spring via TanStack `useMutation` (not Server Actions — see [`frontend/tanstack-query.md`](tanstack-query.md)). Capture failures explicitly in the mutation's `onError` to add structured context; do not rely solely on `onRequestError` (which only fires for server-side request errors):
 
 ```ts
 // src/features/checkout/api/mutations.ts
-'use server'
+'use client'
 
+import { useMutation } from '@tanstack/react-query'
 import * as Sentry from '@/shared/lib/sentry'
+import { PaymentService } from '@/shared/api/generated'
+import { checkoutSchema, type CheckoutValues } from '../model/schema'
 
-export async function submitCheckout(formData: FormData) {
-  const parsed = checkoutSchema.safeParse(Object.fromEntries(formData))
-  if (!parsed.success) return { error: 'Invalid form data' }
-
-  try {
-    await PaymentService.createCharge({ body: parsed.data })
-  } catch (err) {
-    Sentry.captureException(err, { tags: { feature: 'checkout' } })
-    return { error: 'Payment failed. Please try again.' }
-  }
+export function useSubmitCheckout() {
+  return useMutation({
+    // client-side Zod gives instant feedback; Spring is the authoritative validator
+    mutationFn: (values: CheckoutValues) =>
+      PaymentService.createCharge({ body: checkoutSchema.parse(values) }),
+    onError: (err) => {
+      Sentry.captureException(err, { tags: { feature: 'checkout' } })
+    },
+  })
 }
 ```
 
@@ -428,4 +432,4 @@ Sentry.replayIntegration({
 - **Sentry withSentryConfig API:** https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/ — _authoritative_
 - **Next.js instrumentation hooks:** https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation — _authoritative_
 
-Last verified: 2026-05-04 (Sentry SDK 8.X / Next.js 16.X / React 19).
+Last verified: 2026-06-22 (Sentry SDK 9.x / Next.js 16.X / React 19).

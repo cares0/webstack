@@ -13,7 +13,7 @@ webstack frontends apply a four-layer pyramid tuned to an RSC-first, FSD-lite co
 
 **3. E2E tests (Playwright 1.x).** Full user flows against a running Next.js dev/preview server. Server Components, route handlers, middleware, and streaming SSR all participate. Catches the class of bug layers 1–2 structurally cannot — RSC serialisation errors, route-level redirects, cookie-gated pages, streaming failures.
 
-**4. Accessibility tests (axe-core).** Bolt-on to layers 2 and 3. `jest-axe` inside Vitest for component checks; `@axe-core/playwright` inside Playwright fixtures for full-page audits. Both enforce WCAG 2.1 AA.
+**4. Accessibility tests (axe-core).** Bolt-on to layers 2 and 3. `jest-axe` inside Vitest for component checks; `@axe-core/playwright` inside Playwright fixtures for full-page audits. Both enforce **WCAG 2.1 AA as the automated CI gate**; **WCAG 2.2 AA is the manual / target baseline** (the 2.2-specific criteria are checked manually and via the opt-in `wcag22aa` tag) — see [`accessibility.md`](accessibility.md).
 
 ```
           ┌───────────────────┐
@@ -373,4 +373,4 @@ Use visual regression for high-stability, high-value surfaces: design system com
 - **@axe-core/playwright:** https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright — _authoritative_
 - **Testing Library guiding principles:** https://testing-library.com/docs/guiding-principles — _community: Kent C. Dodds_
 
-Last verified: 2026-05-04 (Playwright 1.X / Vitest 3.X / MSW 2.X / @axe-core/playwright 4.X).
+Last verified: 2026-06-22 (Playwright 1.X / Vitest 3.X / MSW 2.X / @axe-core/playwright 4.X).

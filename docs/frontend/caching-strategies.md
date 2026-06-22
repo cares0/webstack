@@ -109,7 +109,7 @@ Built-in `cacheLife` profiles:
 
 ### Generated SDK calls
 
-The generated SDK in `src/shared/api/generated/` wraps raw `fetch`. Apply caching in a wrapper function in `src/entities/<entity>/api/queries.ts`, not inside the generated code:
+The generated SDK in `src/shared/api/generated/` is committed, read-only, and regenerated via `pnpm gen:api`. It wraps raw `fetch`; apply caching in a wrapper function in `src/entities/<entity>/api/queries.ts`, not inside the generated code:
 
 ```ts
 // src/entities/project/api/queries.ts
@@ -157,55 +157,68 @@ export async function getUserProfile(userId: string) {
 
 ### Tag-based on-demand revalidation (preferred)
 
-Call `revalidateTag` in Server Actions after mutations. Tag granularity matters: too coarse evicts unrelated entries; too fine misses related views.
+Mutations in webstack go **FE → generated SDK → Spring** via TanStack `useMutation` — webstack does **not** use Server Actions for backend mutations (the SDK calls a remote Spring service, which a Server Action cannot proxy without re-wrapping it). `src/features/<feature>/api/mutations.ts` therefore holds **TanStack mutation hooks**, not `'use server'` functions. After the mutation succeeds, refresh the `'use cache'` Data Cache for the affected tags with `updateTag` (the Next.js 16 client-callable API) and mark the TanStack Query cache stale with `invalidateQueries`. Tag granularity matters: too coarse evicts unrelated entries; too fine misses related views.
 
 ```ts
 // src/features/project/api/mutations.ts
-'use server'
+'use client'
 
-import { revalidateTag } from 'next/cache'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { updateTag } from 'next/cache'
 import { ProjectsService } from '@/shared/api/generated'
-import { createProjectSchema, updateProjectSchema } from '../model/schema'
+import type { CreateProjectBody, UpdateProjectBody } from '@/shared/api/generated'
 
-export async function createProject(formData: FormData) {
-  const parsed = createProjectSchema.parse(Object.fromEntries(formData))
-  await ProjectsService.createProject({ body: parsed })
-  revalidateTag('projects')
+export function useCreateProject() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: CreateProjectBody) => ProjectsService.createProject({ body }),
+    onSuccess: () => {
+      updateTag('projects')                                       // Next.js Data Cache ('use cache')
+      queryClient.invalidateQueries({ queryKey: ['getProjects'] }) // TanStack client cache
+    },
+  })
 }
 
-export async function updateProject(id: string, formData: FormData) {
-  const parsed = updateProjectSchema.parse(Object.fromEntries(formData))
-  await ProjectsService.updateProject({ path: { id }, body: parsed })
-  revalidateTag(`project-${id}`)  // specific record
-  revalidateTag('projects')       // and the list containing it
+export function useUpdateProject(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: UpdateProjectBody) => ProjectsService.updateProject({ path: { id }, body }),
+    onSuccess: () => {
+      updateTag(`project-${id}`)   // specific record
+      updateTag('projects')        // and the list containing it
+      queryClient.invalidateQueries({ queryKey: ['getProject', { id }] })
+      queryClient.invalidateQueries({ queryKey: ['getProjects'] })
+    },
+  })
 }
 
-export async function deleteProject(id: string) {
-  await ProjectsService.deleteProject({ path: { id } })
-  revalidateTag(`project-${id}`)
-  revalidateTag('projects')
+export function useDeleteProject(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => ProjectsService.deleteProject({ path: { id } }),
+    onSuccess: () => {
+      updateTag(`project-${id}`)
+      updateTag('projects')
+      queryClient.invalidateQueries({ queryKey: ['getProjects'] })
+    },
+  })
 }
 ```
+
+Client-side Zod validation lives in the form (RHF + `zodResolver`); the authoritative validation runs in Spring, not in a Server Action. The form's `onSubmit` calls `mutate(values)` from the hook above.
+
+> **VERIFY against pinned 16.x:** the Cache Components API surface — `cacheComponents`, `'use cache'`, `cacheLife`, `cacheTag`, and especially `updateTag` (client-callable refresh of a `'use cache'` tag) vs `revalidateTag` (server-only Data Cache invalidation) — is still evolving across Next.js 16 minors. Confirm the exact names and call sites against the version pinned in `package.json` before relying on them.
 
 ### `revalidatePath` for route-wide invalidation
 
-Use `revalidatePath` when a mutation affects multiple unrelated data sources on the same URL. This is a blunt instrument — prefer `revalidateTag` for targeted invalidation:
-
-```ts
-import { revalidatePath } from 'next/cache'
-
-export async function publishReport(id: string) {
-  await ReportService.publish({ path: { id } })
-  revalidatePath(`/reports/${id}`)
-}
-```
+When a mutation affects multiple unrelated data sources on the same URL, invalidate the whole route. `revalidatePath` is server-only, so reach it from a thin Route Handler (`src/app/api/revalidate/route.ts`) that the mutation's `onSuccess` calls — not from a Server Action. This is a blunt instrument; prefer tag-based `updateTag` for targeted invalidation.
 
 ### Decision guide
 
-**`revalidateTag` vs `revalidatePath`:**
+**tag refresh vs path refresh:**
 
-- One entity type mutated → `revalidateTag('entity-type')` + `revalidateTag('entity-id')`.
-- Multiple entity types on one URL → `revalidatePath('/that/route')`.
+- One entity type mutated → `updateTag('entity-type')` + `updateTag('entity-id')` from the mutation's `onSuccess`.
+- Multiple entity types on one URL → `revalidatePath('/that/route')` via a Route Handler.
 
 **ISR (`'use cache'` + `cacheLife`) vs SSR (no cache):**
 
@@ -217,7 +230,7 @@ export async function publishReport(id: string) {
 
 webstack uses two separate cache layers that must stay in sync:
 
-- **Next.js Data Cache** — server-side, populated by `'use cache'`, invalidated by `revalidateTag`/`revalidatePath`.
+- **Next.js Data Cache** — server-side, populated by `'use cache'`, refreshed from the client by `updateTag` (or `revalidatePath` via a Route Handler).
 - **TanStack Query cache** — client-side, per-session, invalidated by `queryClient.invalidateQueries`.
 
 ### Prefetch on server, mutate on client
@@ -243,31 +256,24 @@ export default async function ProjectsPage() {
 
 ### Dual-cache invalidation after mutations
 
-Server Actions call `revalidateTag` (Next.js cache); the TanStack Query `onSuccess` calls `invalidateQueries` (client cache):
+A single TanStack mutation hook (`src/features/<feature>/api/mutations.ts`, shown in § "Tag-based on-demand revalidation") drives both layers from its `onSuccess`: `updateTag(...)` refreshes the Next.js Data Cache and `queryClient.invalidateQueries(...)` marks the TanStack Query cache stale. The form component just calls the hook:
 
-```ts
+```tsx
 // src/features/project/ui/CreateProjectForm.tsx  (excerpt)
 'use client'
 
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createProject } from '../api/mutations'   // Server Action
+import { useCreateProject } from '../api/mutations'
 
-export function useCreateProject() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (formData: FormData) => createProject(formData),
-    onSuccess: () => {
-      // Server Action already called revalidateTag('projects') on the server.
-      // Now purge the client-side TanStack Query cache too.
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-    },
-  })
+export function CreateProjectForm() {
+  const { mutate, isPending } = useCreateProject()
+  // form's onSubmit → mutate(values); the hook handles updateTag + invalidateQueries
+  // ...
 }
 ```
 
 This dual-invalidation ensures:
 
-1. The **Next.js Data Cache** is purged — the next SSR request fetches fresh data.
+1. The **Next.js Data Cache** is refreshed via `updateTag` — the next SSR request fetches fresh data.
 2. The **TanStack Query cache** is marked stale — the in-page widget refetches immediately.
 
 ## Anti-patterns
@@ -278,7 +284,7 @@ This dual-invalidation ensures:
 
 **Mixing `next: { revalidate: N }` (fetch option) with `'use cache'` / `cacheLife`.** The `next.revalidate` fetch option is part of the pre-16 caching model (without `cacheComponents: true`). With Cache Components enabled, use `'use cache'` + `cacheLife` exclusively — do not apply both on the same function. The same applies to route segment config (`export const revalidate = 60`).
 
-**Mutating from a Client Component without server revalidation.** A TanStack Query `mutationFn` that calls a raw `fetch()` (not a Server Action) clears the TQ client cache via `invalidateQueries` but leaves the Next.js Data Cache and Full Route Cache stale. A new browser tab will still see old data. Always use a Server Action as the `mutationFn` so `revalidateTag` runs server-side.
+**Refreshing only the client cache after a mutation.** A TanStack mutation that calls `invalidateQueries` but never refreshes the Next.js Data Cache leaves `'use cache'` data and the Full Route Cache stale — a new browser tab still sees old data. Always pair `invalidateQueries` with `updateTag(...)` (or a `revalidatePath` Route Handler) in the same `onSuccess`. The `mutationFn` calls the generated SDK directly (FE → SDK → Spring), not a Server Action.
 
 **Omitting `cacheLife` inside `'use cache'`.** Nested `'use cache'` scopes with short lifetimes propagate their TTL upward to any outer scope that has no explicit `cacheLife`. The implicit `default` profile (15 min revalidate, never expires) is hard to audit. Always call `cacheLife` explicitly in every `'use cache'` scope.
 
@@ -293,4 +299,4 @@ This dual-invalidation ensures:
 
 ---
 
-Last verified: 2026-05-04 (Next.js 16.2.4 / React 19).
+Last verified: 2026-06-22 (Next.js 16.2.4 / React 19).

@@ -180,8 +180,10 @@ type Out = z.output<typeof withDefault>  // { pageSize: number }
 
 The pattern is to derive the Zod schema from the generated type where possible:
 
+hey-api emits the types into `types.gen.ts`; always import them through the `@/shared/api/generated` barrel (not the raw `.gen` file path) so the on-disk filename stays an implementation detail.
+
 ```ts
-// src/shared/api/generated/types.gen.ts (read-only, generated)
+// src/shared/api/generated/types.gen.ts (read-only, generated; import via the @/shared/api/generated barrel)
 // export type CreateProjectBody = { name: string; description?: string; workspaceId: string }
 
 // src/features/project/model/schema.ts
@@ -194,11 +196,12 @@ export const createProjectSchema = z.object({
   description: z.string().max(500).optional(),
   workspaceId: z.string().min(1),
 }) satisfies z.ZodType<CreateProjectBody>
-// satisfies here proves the schema output is assignable to CreateProjectBody
-// TypeScript errors if the schema produces a shape incompatible with the generated type
+// satisfies here is intended to prove the schema output is assignable to CreateProjectBody
 ```
 
-The `satisfies z.ZodType<GeneratedType>` pattern is the bridge: the schema is still Zod (with validations), but the compiler confirms it aligns with the contract type.
+The `satisfies z.ZodType<GeneratedType>` pattern is meant as the bridge: the schema is still Zod (with validations), but the compiler confirms it aligns with the contract type.
+
+> **VERIFY against pinned Zod v4:** `z.ZodType`'s generic variance changed in v4, and `satisfies z.ZodType<T>` can pass even when the schema's _input_ diverges from `T` (it constrains output, not input). A more robust check is an explicit inverse type-test — assert `Expect<Equal<z.infer<typeof schema>, CreateProjectBody>>` (via a tiny type-equality helper) — so a drifted shape fails the build. Confirm the exact `satisfies` behaviour against the pinned Zod version.
 
 ### Composing generated SDK types
 
@@ -231,6 +234,8 @@ export type Project = Omit<ApiProject, 'createdAt' | 'updatedAt'> & {
   updatedAt: Date
 }
 ```
+
+**`exactOptionalPropertyTypes` friction with generated optionals.** hey-api emits optional contract fields as `field?: T` (absent-or-`T`), but code that builds a request body often wants to set a field to `undefined` conditionally (e.g., `{ description: form.description || undefined }`). Under `exactOptionalPropertyTypes` that assignment is rejected — `undefined` is not assignable to `description?: string`. Either omit the key entirely (spread it in only when present) or, where the contract genuinely allows it, widen the local type to `T | undefined`. Do not relax the compiler flag to work around a single call site.
 
 ### RSC serialization constraint
 
@@ -324,4 +329,4 @@ Exception: test setup code (`beforeEach` declarations) where the assignment is s
 
 ---
 
-Last verified: 2026-05-04 (TypeScript 5.X / React 19 / Next.js 16.X).
+Last verified: 2026-06-22 (TypeScript 5.X / React 19 / Next.js 16.X).

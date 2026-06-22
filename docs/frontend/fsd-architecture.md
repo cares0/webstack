@@ -107,7 +107,7 @@ src/shared/
 └── hooks/                        # generic hooks (useDebounce, useMediaQuery)
 ```
 
-ShadCN primitives are placed under `src/shared/ui/` because they are infrastructure for higher layers to compose. The ShadCN `components.json` is configured with `"aliases.ui": "@/shared/ui"` so `npx shadcn add` writes to the right path. The generated OpenAPI SDK lives at `src/shared/api/generated/` — `entities/<x>/api/` and `features/<x>/api/` import from it.
+ShadCN primitives are placed under `src/shared/ui/` because they are infrastructure for higher layers to compose. The ShadCN `components.json` is configured with `"aliases.ui": "@/shared/ui"` so `npx shadcn add` writes to the right path. The generated OpenAPI SDK lives at `src/shared/api/generated/` — committed, read-only, and regenerated via `pnpm gen:api` — and `entities/<x>/api/` and `features/<x>/api/` import from it.
 
 ## Import rules (the layer dependency graph)
 
@@ -168,4 +168,4 @@ If a project later wants the vanilla split (a separate `pages/` layer for explic
 - eslint-plugin-boundaries: https://github.com/javierbrea/eslint-plugin-boundaries
 - steiger (FSD-specific linter): https://github.com/feature-sliced/steiger
 
-Last verified: 2026-04-26.
+Last verified: 2026-06-22.

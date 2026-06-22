@@ -46,7 +46,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`useState` ensures a single `QueryClient` per browser tab even with React 18 strict mode double-mount. For RSC handoff, the same `QueryClient` is reused across hydration via `<HydrationBoundary>` (see "Pre-fetch on server" below).
+`useState` ensures a single `QueryClient` per browser tab even with React 18+/19 strict-mode double-mount. For RSC handoff, the same `QueryClient` is reused across hydration via `<HydrationBoundary>` (see "Pre-fetch on server" below).
 
 ## QueryKey design
 
@@ -259,6 +259,8 @@ export function usePostProjectsMutation() {
 }
 ```
 
+The exact generated symbol names (`useGetProjectsQuery`, `getProjectsQueryOptions`, `usePostProjectsMutation`) are **illustrative** — hey-api's naming depends on the plugin version and your `operationId`s. The stable contract is the mapping `operationId → queryKey` (e.g., `getProjects` → `['getProjects', params]`); write invalidations against the queryKey, not against a memorized hook name.
+
 webstack convention: prefer the generated hooks. Hand-write a `useQuery` only when the generated form is insufficient — typically because the call needs to combine two operations or set unusual cache options. Hand-written hooks reuse the generated `*QueryOptions` factory:
 
 ```ts
@@ -289,7 +291,9 @@ export default defineConfig({
 });
 ```
 
-Run `pnpm openapi-ts` after backend OpenAPI changes; commit the generated output (or gitignore + run on CI — webstack default is to commit so PR diffs surface the API surface change).
+The plugin ids (`@hey-api/client-fetch`, `@hey-api/typescript`, `@tanstack/react-query`) and option names (`queryOptions`, `mutationOptions`, `infiniteQueryOptions`) shift between hey-api releases — verify them against the pinned `@hey-api/openapi-ts` version before relying on this config.
+
+The generated SDK in `src/shared/api/generated/` is committed, read-only, and regenerated via `pnpm gen:api` after backend OpenAPI changes — webstack commits it so PR diffs surface the API-surface change.
 
 ## webstack convention
 
@@ -312,4 +316,4 @@ webstack uses FSD-lite (see `docs/frontend/fsd-architecture.md`); TanStack Query
 - @hey-api TanStack Query plugin: https://heyapi.dev/openapi-ts/plugins/tanstack-react-query
 - @hey-api/openapi-ts: https://heyapi.dev/openapi-ts
 
-Last verified: 2026-04-26 (TanStack Query v5 stable; v6 not yet released).
+Last verified: 2026-06-22 (TanStack Query v5 stable; v6 not yet released).
