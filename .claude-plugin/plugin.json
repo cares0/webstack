@@ -8,9 +8,6 @@
   },
   "homepage": "https://github.com/cares0/webstack",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cares0/webstack"
-  },
+  "repository": "https://github.com/cares0/webstack",
   "keywords": ["fullstack", "nextjs", "spring", "kotlin", "ddd", "modulith", "fsd", "openapi", "opentofu", "design-system", "vercel", "oracle-cloud", "supabase", "marketplace"]
 }
