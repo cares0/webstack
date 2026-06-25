@@ -190,8 +190,8 @@ class OrderInvoicePaidHandler(private val orderService: OrderService) {
 `@ApplicationModuleListener` is Modulith's wrapper for `@TransactionalEventListener(phase = AFTER_COMMIT)` plus `@Async` plus the registry's persistence semantics. Add the event registry starter to enable persistence (pin to the latest 2.x stable line):
 
 ```kotlin
-// build.gradle.kts — pin to latest Spring Modulith 2.x stable
-implementation(platform("org.springframework.modulith:spring-modulith-bom:2.0.6"))
+// build.gradle.kts — modulith version centralised in gradle/libs.versions.toml
+implementation(platform(libs.modulith.bom))
 implementation("org.springframework.modulith:spring-modulith-starter-jpa")
 // (spring-modulith-events-jpa is pulled in transitively by -starter-jpa; no separate entry needed)
 ```

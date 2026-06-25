@@ -6,16 +6,17 @@ Flyway conventions (BOM-managed: Flyway 11.x with Spring Boot 4), expand-contrac
 
 ## What is Flyway in webstack
 
-Flyway is a **database migration tool** that versions schema changes as plain SQL scripts committed alongside application code. Spring Boot auto-applies pending migrations at startup whenever `flyway-core` (and for Postgres, `flyway-database-postgresql`) is on the classpath — no explicit bean definition required.
+Flyway is a **database migration tool** that versions schema changes as plain SQL scripts committed alongside application code. Spring Boot auto-applies pending migrations at startup. On Spring Boot 4 this requires the **`spring-boot-starter-flyway`** starter (classpath presence of `flyway-core` alone no longer triggers auto-configuration), plus `flyway-database-postgresql` for the Postgres dialect — no explicit bean definition required.
 
 ### Auto-configuration
 
-Spring Boot's `FlywayAutoConfiguration` activates when `flyway-core` is on the classpath, a `DataSource` bean is available, and `spring.flyway.enabled` is `true` (default). At startup, Spring calls `Flyway.migrate()` before application logic runs. Set `spring.jpa.hibernate.ddl-auto=validate` so Hibernate confirms the live schema matches the entity model — not `create` or `create-drop`, which bypasses Flyway.
+Spring Boot's `FlywayAutoConfiguration` activates when the `spring-boot-starter-flyway` starter is present (Spring Boot 4 requires the starter, not just `flyway-core` on the classpath), a `DataSource` bean is available, and `spring.flyway.enabled` is `true` (default). At startup, Spring calls `Flyway.migrate()` before application logic runs. Set `spring.jpa.hibernate.ddl-auto=validate` so Hibernate confirms the live schema matches the entity model — not `create` or `create-drop`, which bypasses Flyway.
 
 For Postgres specifically, add the dialect artifact:
 
 ```kotlin
-// build.gradle.kts
+// build.gradle.kts — Boot 4 needs the starter; both BOM-managed (no version)
+implementation("org.springframework.boot:spring-boot-starter-flyway")
 implementation("org.flywaydb:flyway-database-postgresql")
 ```
 

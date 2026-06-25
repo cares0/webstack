@@ -160,7 +160,7 @@ Add `spring-modulith-docs` to the test classpath. With the webstack BOM (always 
 
 ```kotlin
 // build.gradle.kts
-implementation(platform("org.springframework.modulith:spring-modulith-bom:2.0.6"))
+implementation(platform(libs.modulith.bom))
 testImplementation("org.springframework.modulith:spring-modulith-docs")
 ```
 

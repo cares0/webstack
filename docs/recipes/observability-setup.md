@@ -98,7 +98,7 @@ Disable the Grafana/OTel distribution's own metric exporter so metrics flow thro
 OTEL_METRICS_EXPORTER=none      # traces + logs still export; metrics come from micrometer-registry-otlp
 ```
 
-Create `<backend>/src/main/resources/logback-spring.xml` — JSON appender with `LogstashEncoder` including `trace_id` and `span_id` MDC keys for non-local profiles; plain pattern appender for `local` profile. Full template: see `docs/backend/observability.md` §Logs.
+Enable structured JSON logs. **Default (Boot 4 built-in):** set `logging.structured.format.console=ecs` in `application.yml` for non-local profiles — no dependency, no XML; leave it unset for `local` to keep the readable pattern. Only if you need field masking or a custom shape, add `logstash-logback-encoder` + a `logback-spring.xml`. Full details: `docs/backend/observability.md` §Logs.
 
 ## Step 6 — FE Sentry SDK
 

@@ -81,6 +81,8 @@ One `GroupedOpenApi` bean per active version, keyed by path prefix. See [springd
 
 **webstack verdict:** URI versioning. CDN, springdoc, and tooling advantages outweigh the REST-purity objection.
 
+> **Spring Boot 4 native API versioning.** Spring Framework 7 adds first-class API versioning — a `version` attribute on `@RequestMapping`/`@GetMapping` plus an `ApiVersionConfigurer` that resolves the version from a path segment, header, query param, or media type. webstack keeps **URI** versioning (separate controllers per `/api/vN`) for the cache/discoverability/springdoc-grouping reasons above, but if you later need header or media-type versioning, prefer the native `ApiVersionConfigurer` over a custom `RequestMappingHandlerMapping`.
+
 ## Backward-compatible changes
 
 Safe without a new URI version:
@@ -271,7 +273,8 @@ class OpenApiGroupConfig {
 Gradle (the `springdoc-openapi 3.0.x` line targets Spring Boot 4; the 2.x line — including 2.8.x — is Spring Boot 3 only):
 
 ```kotlin
-implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0") // pin to the latest 3.0.x (verify against springdoc releases at implementation time)
+implementation(libs.springdoc.webmvc.ui)                        // version in gradle/libs.versions.toml
+implementation("org.springframework.boot:spring-boot-jackson2") // Jackson 2 bridge for swagger-core (see rest-api-design.md §springdoc)
 ```
 
 ```yaml

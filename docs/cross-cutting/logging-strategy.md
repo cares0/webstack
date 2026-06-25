@@ -92,11 +92,13 @@ logging:
 
 Structured logging keeps the message template stable and passes dynamic values as named fields. This allows log aggregators to group identical events regardless of parameter values.
 
-### BE — Logback `LogstashEncoder`
+### BE — structured JSON
+
+**Default (Boot 4 built-in):** `logging.structured.format.console=ecs` (or `logstash`/`gelf`) — no dependency, no `logback-spring.xml`. Use `logstash-logback-encoder` only for field masking or a custom shape (BOM-external — pin it in `gradle/libs.versions.toml`):
 
 ```kotlin
-// build.gradle.kts
-implementation("net.logstash.logback:logstash-logback-encoder:9.0")
+// build.gradle.kts — only if the built-in formats don't suffice
+implementation("net.logstash.logback:logstash-logback-encoder:9.0") // BOM-external; centralize in libs.versions.toml
 ```
 
 ```xml

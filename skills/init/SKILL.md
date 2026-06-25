@@ -190,12 +190,12 @@ Checkpoint: "Frontend repo created and pushed. Proceed to backend?"
      -o starter.zip && unzip starter.zip && rm starter.zip
    ```
 
-5. Edit `build.gradle.kts` to add:
-   - KoTest: `testImplementation("io.kotest:kotest-runner-junit5:<v>")`, `kotest-assertions-core`, `kotest-extensions-spring`.
-   - MockK: `testImplementation("io.mockk:mockk:<v>")`, `com.ninja-squad:springmockk:<v>`.
-   - Spring Modulith: `org.springframework.modulith:spring-modulith-starter-core` + `spring-modulith-starter-jpa` + `spring-modulith-events-jpa`.
-   - springdoc-openapi-starter-webmvc-ui.
-   - Postgres driver (`org.postgresql:postgresql`) and HikariCP (default).
+5. **Create `gradle/libs.versions.toml`** — the backend's single source of truth for BOM-external versions. Copy the canonical backend catalog from `docs/cross-cutting/dependency-management.md` §"Backend version catalog (single source of truth)" and resolve each entry to its latest Boot-4-compatible patch at scaffold time. Then edit `build.gradle.kts` to consume it. **Rule: artifacts the Spring Boot BOM manages carry NO version** (the `org.springframework.boot` Gradle plugin imports the BOM).
+   - **Spring Modulith** (BOM): `implementation(platform(libs.modulith.bom))` + `spring-modulith-starter-core` + `spring-modulith-starter-jpa` (`spring-modulith-events-jpa` is transitive via `-starter-jpa`).
+   - **springdoc** (catalog) **+ Jackson 2 bridge**: `implementation(libs.springdoc.webmvc.ui)` **and** `implementation("org.springframework.boot:spring-boot-jackson2")`. Boot 4 defaults to Jackson 3 but springdoc's swagger-core is still on Jackson 2 — without the bridge the app fails to boot (`ClassNotFoundException`). Remove once swagger-core ships a Jackson 3 line (track swagger-core#4991).
+   - **KoTest** (catalog): `testImplementation(libs.kotest.runner)`, `libs.kotest.assertions`, `libs.kotest.spring`. ⚠️ The Spring extension is **`io.kotest:kotest-extensions-spring`** (lockstep with the runner, ≥ 6.2.0 for Spring 7/Boot 4) — NOT the archived `io.kotest.extensions:kotest-extensions-spring:1.3.0` (Spring 5, breaks on Boot 4).
+   - **MockK / springmockk** (catalog): `testImplementation(libs.mockk)`, `libs.springmockk`. springmockk 5.x exposes `@MockkBean` / `@MockkSpyBean` (see `docs/backend/kotest-behavior-spec.md`).
+   - **Postgres driver + HikariCP** (BOM, no version): `runtimeOnly("org.postgresql:postgresql")`; HikariCP is the default connection pool (transitive).
    - **If `needs_auth=true`**: do not add JWT libraries here — `docs/recipes/spring-security-auth.md` walks the user through choosing between `spring-boot-starter-security-oauth2-resource-server` (Nimbus, default for Spring; renamed from `spring-boot-starter-oauth2-resource-server` in Spring Boot 4) or `io.jsonwebtoken:jjwt-*` and applying the right `SecurityFilterChain`. Init only ensures `spring-boot-starter-security` is on the classpath via the Initializr dep added in Step 4.
 6. Create the Modulith + Hexagonal package skeleton. Modules (top-level packages) map 1:1 to bounded contexts; **hexagonal layers live inside each module**. At init time we don't know the BCs yet, so create only the application root + a `core/` placeholder module that the first feature will rename or split:
 

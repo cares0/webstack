@@ -50,7 +50,7 @@ Modulith creates this table via its bundled Flyway migration when `spring-moduli
 
 ```kotlin
 // build.gradle.kts
-implementation(platform("org.springframework.modulith:spring-modulith-bom:2.0.6"))
+implementation(platform(libs.modulith.bom))
 implementation("org.springframework.modulith:spring-modulith-starter-jpa")
 ```
 

@@ -97,7 +97,7 @@ For each endpoint from contract, scoped to its owning module `<module>`:
 
 1. Write request/response DTO: `<module>/infrastructure/http/<resource>/<Resource>Dto.kt` — Jackson-bound, with validation annotations.
 2. Write controller: `<module>/infrastructure/http/<resource>/<Resource>Controller.kt` — `@RestController`, methods translate DTO ↔ domain command, call the module's use case.
-3. Write controller integration spec: `<module>/infrastructure/http/<resource>/<Resource>ControllerSpec.kt` — `@SpringBootTest`, `@AutoConfigureMockMvc`, KoTest BehaviorSpec.
+3. Write controller integration spec: `<module>/infrastructure/http/<resource>/<Resource>ControllerSpec.kt` — `@SpringBootTest`, `@AutoConfigureMockMvc`, KoTest BehaviorSpec. Mock the application service with `@MockkBean` (springmockk) so the web slice doesn't hit the DB; keep domain/use-case behavior in pure-JVM specs (see `docs/backend/kotest-behavior-spec.md` §Mocking a bean).
 4. Write JPA entity (if new): `<module>/infrastructure/persistence/<aggregate>/<Aggregate>JpaEntity.kt` — `@Entity`, mapping to/from domain via `toDomain()` / `fromDomain()` extension functions in same file.
 5. Write repository implementation: `<module>/infrastructure/persistence/<aggregate>/<Aggregate>JpaRepositoryImpl.kt` — wraps Spring Data JPA `<Aggregate>SpringDataRepository : JpaRepository<<Aggregate>JpaEntity, UUID>`, implements the domain repository port.
 6. Module-scoped Spring config (if needed): `<module>/infrastructure/config/<Module>Config.kt` — `@Configuration`, beans private to this module.
@@ -132,7 +132,7 @@ The canonical drift report is produced by the `contract-drift-detective` SubAgen
 1. Start backend: `./gradlew bootRun &` — capture PID.
 2. Wait for startup: poll `curl -fsS http://localhost:8080/actuator/health` until `{"status":"UP"}` (max 60s).
 3. Fetch the runtime spec: `curl -sf http://localhost:8080/v3/api-docs > /tmp/runtime-spec.json`.
-4. Diff against `<contract_path>` inline with `python3 -c "import yaml,json,sys; ..."`. At minimum verify: (a) every contract path is in runtime, (b) every contract method per path is present, (c) status codes per operation match, (d) required request/response field types match.
+4. Diff against `<contract_path>` with **oasdiff** (the same comparator the P7 `contract-drift-detective` and CI use — no hand-rolled python diff): `oasdiff breaking <contract_path> /tmp/runtime-spec.json --fail-on ERR` (non-zero exit = breaking drift) and `oasdiff changelog <contract_path> /tmp/runtime-spec.json` for the full list (incl. runtime-only endpoints = contract leakage).
 5. Stop backend: `kill $PID`.
 6. If Critical drift (missing endpoint, status-code mismatch, type mismatch): fix code in this worktree; or, if the contract itself is wrong, escalate `CLARIFICATION NEEDED: <question>` to the invoking caller and stop.
 

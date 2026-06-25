@@ -28,13 +28,13 @@ logstash-logback-encoder       ← JSON log encoding + MDC field output
 
 ## Why Micrometer + OTel + Logback JSON
 
-**Spring Boot 4 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction, and Spring Boot 4.0 hardens it with the new `spring-boot-starter-opentelemetry` (VERIFY this starter exists/its exact coordinates in the Boot 4 GA release at implementation time). HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 4.0 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
+**Spring Boot 4 first-class support.** Spring Boot 3.0 adopted Micrometer's Observation API as its core abstraction, and Spring Boot 4.0 hardens it with the new `spring-boot-starter-opentelemetry` (confirmed in Boot 4 GA — bundles the OTLP exporter and the Micrometer tracing bridge). HTTP server, JDBC, and messaging produce observations automatically. `@Observed`, `@Timed`, and `@Counted` work via AspectJ. Spring Boot 4.0 ships an `OpenTelemetry` bean that wires `SdkTracerProvider`, `SdkMeterProvider`, and `SdkLoggerProvider` into Micrometer and Logback — no manual `OpenTelemetry.builder()` needed.
 
 **CNCF standard — vendor-neutral.** Switching from Grafana Cloud to Honeycomb or Datadog is an env var change, not a code change.
 
 **Free-tier compatible.** Grafana Cloud Free: Mimir 10 k active series, Tempo 50 GB/month, Loki 50 GB/month. A typical early-stage webstack project stays within these limits.
 
-**LogstashEncoder.** `logstash-logback-encoder` (community: `logfellow` org, v9.x — Java 17 + Logback 1.5+) replaces pattern-layout with structured JSON. MDC entries — including `trace_id`/`span_id` injected by OTel — appear as top-level JSON fields automatically.
+**Structured logs.** Spring Boot 4 emits structured JSON natively via `logging.structured.format.console=ecs|logstash|gelf` — the default path, no dependency. MDC entries (incl. `trace_id`/`span_id` from OTel) become JSON fields automatically. `logstash-logback-encoder` (community `logfellow` org, v9.x) is the fallback only when you need field masking or a custom shape (see §Logs).
 
 ## Metrics — Micrometer
 
@@ -249,13 +249,34 @@ grafana:
 
 Use the OTel Java agent for non-Grafana backends (Honeycomb, Datadog, custom Tempo).
 
-## Logs — Logback JSON encoder
+## Logs — structured JSON
 
-### Dependency and configuration
+### Built-in structured logging (default on Spring Boot 4)
+
+Spring Boot 4 emits structured JSON natively — **no dependency, no `logback-spring.xml`**:
+
+```yaml
+# application.yml (non-local profiles)
+logging:
+  structured:
+    format:
+      console: ecs      # or: logstash | gelf
+      file: ecs
+  structured.ecs.service:
+    name: ${spring.application.name}
+    version: ${APP_VERSION:dev}
+    environment: ${ENVIRONMENT:local}
+```
+
+MDC entries — including `trace_id`/`span_id` from the OTel agent — appear as JSON fields automatically. Leave `logging.structured.format.console` unset under the `local` profile to keep a human-readable pattern. This is the default for new webstack backends; reach for the encoder below only for a custom field shape or PII masking.
+
+### Custom format — Logback `LogstashEncoder`
+
+Use the encoder only when the built-in `ecs`/`logstash`/`gelf` formats don't cover your needs (e.g. the PII-masking decorator below). `logstash-logback-encoder` is BOM-external — it carries its own version, so centralize it in `gradle/libs.versions.toml`:
 
 ```kotlin
-// build.gradle.kts
-implementation("net.logstash.logback:logstash-logback-encoder:9.0")
+// build.gradle.kts — only if the built-in formats don't suffice
+implementation("net.logstash.logback:logstash-logback-encoder:9.0") // BOM-external; pin in libs.versions.toml
 ```
 
 ```xml

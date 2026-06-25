@@ -5,6 +5,28 @@ All notable changes to webstack will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-25
+
+> Spring Boot 4 ecosystem alignment. Verified (2026-06) that the libraries assumed broken — springdoc, springmockk, Spring Modulith — all support Boot 4; the real issues were stale official docs/Maven mirrors, a missing Jackson 2 bridge, and version pins scattered across the docs. This pass fixes the breakages and removes the drift at its root.
+
+### Changed
+
+- **Backend version strategy → Gradle Version Catalog as single source of truth.** `docs/cross-cutting/dependency-management.md` gains a "Backend version catalog" section with two rules: (1) never pin a version the Spring Boot BOM manages, (2) only BOM-external artifacts (Kotest, MockK, springmockk, springdoc, ArchUnit) live in `gradle/libs.versions.toml`. `/webstack:init` now generates the catalog and `build.gradle.kts`/reference docs consume it via `libs.*`. Previously the same versions were hardcoded inline across ~10 docs (the root cause of the drift) and the catalog Renovate was told to manage did not exist.
+- **`contract-drift-detective` rewritten to use oasdiff.** The agent previously fetched the springdoc spec and had the model compare paths/schemas by hand via `python3` — non-deterministic and unreproducible. It now diffs with **oasdiff** (`breaking` + `changelog`, exit-code gate): breaking changes / contract leakage / non-breaking diffs are classified deterministically by the same command CI runs. The inline drift sanity checks in `skills/build-be` Phase 5 and `agents/backend-implementer` P5 switched to oasdiff too.
+- **Structured logging defaults to Spring Boot 4's built-in support.** `observability.md`, `recipes/observability-setup.md`, and `logging-strategy.md` now lead with `logging.structured.format.console=ecs|logstash|gelf` (no dependency, no `logback-spring.xml`); `logstash-logback-encoder` is demoted to the fallback for field masking / custom shapes.
+- **Mocking guidance — altitude made explicit.** `kotest-behavior-spec.md` documents the rule: mock ports with `mockk()` in pure-JVM unit tests; use `@MockkBean` only in controller web slices. springmockk 5.x naming captured (`@SpykBean` → `@MockkSpyBean`, `classes` → `types`).
+
+### Fixed
+
+- **Dead KoTest Spring-extension coordinate.** `kotest-behavior-spec.md` pinned `io.kotest.extensions:kotest-extensions-spring:1.3.0` — archived and Spring-5-bound, which breaks on Boot 4. Corrected to `io.kotest:kotest-extensions-spring` (lockstep with the runner, ≥ 6.2.0); the `io.kotest.extensions.spring.SpringExtension` import path is unchanged.
+- **springdoc failed to boot on Spring Boot 4 without a Jackson 2 bridge.** Boot 4 defaults to Jackson 3, but springdoc's swagger-core is still on Jackson 2, causing a startup `ClassNotFoundException`. The springdoc declaration (`rest-api-design.md`, `api-versioning.md`, `init`) now adds `org.springframework.boot:spring-boot-jackson2` (removable once swagger-core ships Jackson 3).
+- **Jackson 3 (`tools.jackson`) coverage.** Domain-purity rules in `archunit-rules.md` and `agents/code-reviewer.md` now forbid both `com.fasterxml.jackson..` and `tools.jackson..`. `caching.md` switches the Redis serializer to `GenericJacksonJsonRedisSerializer` (Jackson 3) and drops the now-BOM-managed Caffeine version pin.
+- **Flyway auto-configuration on Boot 4.** `database-migrations.md` corrected: Boot 4 requires the `spring-boot-starter-flyway` starter, not just `flyway-core` on the classpath.
+
+### Added
+
+- **Spring Boot 4 native API versioning note** in `api-versioning.md` — Spring Framework 7's `ApiVersionConfigurer` / `@RequestMapping(version=…)` flagged as the preferred path if header/media-type versioning is ever needed (webstack keeps URI versioning by default).
+
 ## [0.2.0] - 2026-05-02
 
 > First marketplace release. Aligns the plugin with 2026 mainstream Claude Code plugin practices, fixes plugin/agent/hook schema bugs found in pre-publish audit, and migrates hooks to the JSON-output contract.

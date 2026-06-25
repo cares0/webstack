@@ -36,7 +36,7 @@ Trade-off: in-process caches are not shared across JVM instances. On a single VM
 ```kotlin
 // build.gradle.kts
 implementation("org.springframework.boot:spring-boot-starter-cache")
-implementation("com.github.ben-manes.caffeine:caffeine:3.2.4")
+implementation("com.github.ben-manes.caffeine:caffeine") // version managed by the Spring Boot BOM
 ```
 
 ### `@EnableCaching` and basic `CacheManager`
@@ -263,7 +263,7 @@ fun cacheManager(connectionFactory: RedisConnectionFactory): RedisCacheManager {
         .entryTtl(Duration.ofMinutes(10))
         .serializeValuesWith(
             RedisSerializationContext.SerializationPair.fromSerializer(
-                GenericJackson2JsonRedisSerializer()
+                GenericJacksonJsonRedisSerializer()
             )
         )
     return RedisCacheManager.builder(connectionFactory)
@@ -275,7 +275,7 @@ fun cacheManager(connectionFactory: RedisConnectionFactory): RedisCacheManager {
 
 Service annotations are unchanged — only the `CacheManager` bean is replaced.
 
-**Serialization:** Caffeine stores live references; Redis requires serialization. Use `GenericJackson2JsonRedisSerializer` with all-`val` data classes and `KotlinModule` registered on the `ObjectMapper`.
+**Serialization:** Caffeine stores live references; Redis requires serialization. On Spring Boot 4 (Jackson 3) use `GenericJacksonJsonRedisSerializer` (the Jackson 2 `GenericJackson2JsonRedisSerializer` is deprecated) with all-`val` data classes; the Kotlin module (`tools.jackson.module:jackson-module-kotlin`) is auto-registered, and the serializer builds its mapper via `JsonMapper.Builder`.
 
 ## Observability
 

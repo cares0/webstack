@@ -1,6 +1,6 @@
 {
   "name": "webstack",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Fullstack web service harness for Claude Code (plugin metadata mirror — used only for lint scripts)",
   "scripts": {

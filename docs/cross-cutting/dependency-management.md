@@ -22,6 +22,49 @@ When `manifest.optional_integrations.renovate=true` (default at `/webstack:init`
 
 ---
 
+## Backend version catalog (single source of truth)
+
+The backend pins versions in **one** place — `gradle/libs.versions.toml` (Gradle Version Catalog). `/webstack:init` generates it; `build.gradle.kts` and the reference docs consume it via `libs.*`; Renovate's `gradle` manager updates it automatically (`recipes/renovate-setup.md`). Two rules keep the stack drift-free:
+
+1. **Never pin a version the Spring Boot BOM already manages.** The `org.springframework.boot` Gradle plugin imports `spring-boot-dependencies`, so BOM-managed artifacts are declared *without* a version. Pinning one silently overrides the BOM's tested version and invites subtle incompatibilities.
+2. **Only BOM-external artifacts live in `libs.versions.toml`.** One file, one version per library, referenced everywhere by `libs.*`.
+
+| Class | Artifacts | Declaration |
+|---|---|---|
+| **Spring Boot BOM** (no version) | Jackson, Flyway + `flyway-database-postgresql`, jOOQ, Micrometer + `micrometer-tracing-bridge-otel`, HikariCP, PostgreSQL, **Caffeine** | `implementation("…")` — version omitted |
+| **Modulith BOM** (no version) | `spring-modulith-*` starters/docs | `platform(libs.modulith.bom)` then starters without version |
+| **BOM-external** (catalog) | Kotest, MockK, springmockk, springdoc, ArchUnit — and, when their optional integration is enabled: Nimbus JOSE, logstash-logback-encoder, Bucket4j, Sentry, OWASP encoder | `libs.*` |
+
+> Verified against the Spring Boot 4.0 BOM (2026-06): Caffeine **is** managed (declare without a version); `nimbus-jose-jwt` and `logstash-logback-encoder` are **not** managed (they carry a version when used).
+
+Canonical backend catalog (BOM-external base stack — optional integrations append their own entries):
+
+```toml
+# <backend>/gradle/libs.versions.toml
+[versions]
+kotest      = "6.2.1"   # Spring extension is lockstep with the runner
+mockk       = "1.14.3"
+springmockk = "5.0.1"   # Spring Boot 4 / Framework 7 line
+springdoc   = "3.0.3"   # Spring Boot 4 line (2.x = Boot 3)
+archunit    = "1.4.2"
+modulith    = "2.0.7"   # consumed via platform(libs.modulith.bom)
+
+[libraries]
+kotest-runner       = { module = "io.kotest:kotest-runner-junit5",                    version.ref = "kotest" }
+kotest-assertions   = { module = "io.kotest:kotest-assertions-core",                  version.ref = "kotest" }
+kotest-property     = { module = "io.kotest:kotest-property",                          version.ref = "kotest" }
+kotest-spring       = { module = "io.kotest:kotest-extensions-spring",                version.ref = "kotest" }  # group io.kotest — NOT io.kotest.extensions
+mockk               = { module = "io.mockk:mockk",                                    version.ref = "mockk" }
+springmockk         = { module = "com.ninja-squad:springmockk",                       version.ref = "springmockk" }
+springdoc-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
+archunit-junit5     = { module = "com.tngtech.archunit:archunit-junit5",              version.ref = "archunit" }
+modulith-bom        = { module = "org.springframework.modulith:spring-modulith-bom",  version.ref = "modulith" }
+```
+
+BOM-managed artifacts (Flyway, jOOQ, Caffeine, Postgres, HikariCP, Jackson, …) are **not** listed here — declare them in `build.gradle.kts` with no version. Spring Boot itself is pinned by the Gradle plugin in the `plugins {}` block (Initializr-resolved at scaffold time), not in the catalog.
+
+---
+
 ## Why Renovate over Dependabot
 
 GitHub ships Dependabot by default, so teams reach for it first. For a polyglot 3-repo setup, Renovate is a better fit across five dimensions:
@@ -34,7 +77,7 @@ GitHub ships Dependabot by default, so teams reach for it first. For a polyglot 
 
 **Dependency Dashboard.** Renovate opens a GitHub Issue listing every pending update with current/target versions and PR status. Dependabot has no equivalent.
 
-**Merge confidence badges.** Each Renovate PR shows four signals — _Age_, _Adoption_, _Passing_, and _Confidence_ — sourced from Renovate's merge-confidence dataset. Dependabot shows one compatibility score badge.
+**Merge confidence badges.** Each Renovate PR shows four signals — *Age*, *Adoption*, *Passing*, and *Confidence* — sourced from Renovate's merge-confidence dataset. Dependabot shows one compatibility score badge.
 
 **regexManager.** Renovate tracks `version = "..."` in `*.tf`, `FROM image:tag` in Dockerfiles, and plugin blocks in `build.gradle.kts` via custom regex. Dependabot has no equivalent for custom file patterns.
 
@@ -159,7 +202,7 @@ The Kotlin DSL `plugins {}` block uses string literal versions that Gradle's bui
 ```kotlin
 // In build.gradle.kts — add annotation comment on the line before version()
 // renovate: datasource=gradle-version depName=org.springframework.boot:spring-boot-gradle-plugin
-id("org.springframework.boot") version("3.2.5")
+id("org.springframework.boot") version("4.0.0")
 ```
 
 The corresponding `matchStrings` pattern captures `datasource`, `depName`, and `currentValue` from those comment+version pairs. Set `datasourceTemplate: "maven"` for Maven Central lookups.
@@ -273,11 +316,11 @@ Auto-merge is **disabled for all update types** — infrastructure changes must 
 
 ## Sources
 
-- **Renovate configuration options reference:** https://docs.renovatebot.com/configuration-options/ — _authoritative_
-- **Renovate default presets:** https://docs.renovatebot.com/presets-default/ — _authoritative_
-- **Renovate regex custom manager:** https://docs.renovatebot.com/modules/manager/regex/ — _authoritative_
-- **Renovate vs Dependabot comparison:** https://docs.renovatebot.com/bot-comparison/ — _authoritative_
-- **Renovate GitHub App installation guide:** https://github.com/apps/renovate — _authoritative_
-- **Mend Renovate community discussion — monorepo presets:** https://github.com/renovatebot/renovate/discussions — _community: renovatebot_
+- **Renovate configuration options reference:** https://docs.renovatebot.com/configuration-options/ — *authoritative*
+- **Renovate default presets:** https://docs.renovatebot.com/presets-default/ — *authoritative*
+- **Renovate regex custom manager:** https://docs.renovatebot.com/modules/manager/regex/ — *authoritative*
+- **Renovate vs Dependabot comparison:** https://docs.renovatebot.com/bot-comparison/ — *authoritative*
+- **Renovate GitHub App installation guide:** https://github.com/apps/renovate — *authoritative*
+- **Mend Renovate community discussion — monorepo presets:** https://github.com/renovatebot/renovate/discussions — *community: renovatebot*
 
 Last verified: 2026-06-22 (Renovate 39.X / GitHub App).

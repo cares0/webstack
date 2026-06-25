@@ -771,14 +771,19 @@ Gradle dependency:
 
 ```kotlin
 // Spring Boot 4 requires the springdoc 3.0.x line (2.x — incl. 2.8.x — targets Boot 3 only).
-implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0")
+// Version in gradle/libs.versions.toml (see dependency-management.md §Backend version catalog).
+implementation(libs.springdoc.webmvc.ui)
+// Jackson 2 bridge: Boot 4 defaults to Jackson 3, but springdoc's swagger-core is still on
+// Jackson 2. Without this the app fails to boot (ClassNotFoundException). Remove once
+// swagger-core ships a Jackson 3 line (track swagger-core#4991).
+implementation("org.springframework.boot:spring-boot-jackson2")
 ```
 
 springdoc reads `@RestController`, `@RequestMapping`, `@Operation`, `@Parameter`, `@ApiResponse`, and `@Schema` annotations. Keep annotations minimal — the contract YAML is the source of truth. Use `@Operation` only to add `deprecated = true` or a summary that differs from the contract; avoid duplicating schema definitions already in the YAML.
 
 ### contract-drift-detective integration
 
-The `contract-drift-detective` agent runs at P7 (post build-be). It fetches the live springdoc spec and diffs it against `.webstack/contracts/<feature>.yaml`. REST design violations it detects:
+The `contract-drift-detective` agent runs at P7 (post build-be). It fetches the live springdoc spec and diffs it against `.webstack/contracts/<feature>.yaml` with **oasdiff** (deterministic OpenAPI diff — breaking changes block the merge; runtime-only endpoints count as contract leakage). REST design violations it detects:
 
 | Violation | Severity |
 |-----------|----------|

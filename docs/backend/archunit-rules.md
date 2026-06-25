@@ -14,8 +14,8 @@ ArchUnit 1.x ships three API layers: **Core** (`ClassFileImporter`), **Lang** (f
 **JUnit 5 integration** requires only two annotations: `@AnalyzeClasses` on the test class, `@ArchTest` on rule fields. The imported classes are **cached per class-path snapshot** — a project with 20 rules pays the import cost once per test run.
 
 ```kotlin
-// build.gradle.kts
-testImplementation("com.tngtech.archunit:archunit-junit5:1.4.2")
+// build.gradle.kts — version in gradle/libs.versions.toml (see dependency-management.md §Backend version catalog)
+testImplementation(libs.archunit.junit5)
 ```
 
 ## Why ArchUnit + Modulith verifier 둘 다
@@ -69,7 +69,7 @@ layeredArchitecture().consideringAllDependencies()
     .whereLayer("Infrastructure").mayOnlyAccessLayers("Application", "Domain")
 ```
 
-Supplement with explicit prohibition rules for framework pollution in `domain/`. Repeat the pattern for JPA (`jakarta.persistence..`) and Jackson (`com.fasterxml.jackson..`):
+Supplement with explicit prohibition rules for framework pollution in `domain/`. Repeat the pattern for JPA (`jakarta.persistence..`) and Jackson — both the Jackson 2 (`com.fasterxml.jackson..`) and Jackson 3 (`tools.jackson..`) packages, since Spring Boot 4 defaults to Jackson 3:
 
 ```kotlin
 noClasses().that().resideInAPackage("..domain..")
@@ -215,8 +215,9 @@ class ArchitectureTest {
 
     @ArchTest val domainHasNoJacksonDependency: ArchRule =
         noClasses().that().resideInAPackage("..domain..")
-            .should().dependOnClassesThat().resideInAPackage("com.fasterxml.jackson..")
-            .because("Domain must be pure Kotlin — no Jackson imports allowed")
+            .should().dependOnClassesThat()
+                .resideInAnyPackage("com.fasterxml.jackson..", "tools.jackson..")
+            .because("Domain must be pure Kotlin — no Jackson imports allowed (Jackson 2 or 3)")
 
     @ArchTest val controllersInInfrastructureHttp: ArchRule =
         classes().that().areAnnotatedWith(RestController::class.java)

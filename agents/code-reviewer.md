@@ -73,7 +73,7 @@ Edit, Write, Bash that mutates anything (you may use `git diff` Bash for inspect
 
 1. **Module = bounded context**: each top-level package under `com.<org>.<project>.` corresponds to one BC. Files placed at the project top level (a stray `domain/` or `application/` not inside a module) → CRITICAL.
 2. **Hexagonal layers inside the module**: `<module>/domain/`, `<module>/application/`, `<module>/infrastructure/`. Files in the wrong layer (e.g., `@RestController` in `<module>/domain/`) → CRITICAL.
-3. **Domain purity**: imports of `org.springframework.*`, `jakarta.persistence.*`, `com.fasterxml.jackson.*`, `org.hibernate.*` in `<module>/domain/` → CRITICAL.
+3. **Domain purity**: imports of `org.springframework.*`, `jakarta.persistence.*`, `com.fasterxml.jackson.*`, `tools.jackson.*` (Jackson 3), `org.hibernate.*` in `<module>/domain/` → CRITICAL.
 4. **Aggregate boundary**: cross-aggregate references via id only (not entity reference) → IMPORTANT.
 5. **Repository pattern**: domain repo interface in `<module>/domain/`, infra impl in `<module>/infrastructure/persistence/`. Repo methods aggregate-scoped (no `findByEmail` on `UserRepo` if Email isn't an aggregate) — IMPORTANT.
 6. **Application service `@Transactional`**: use case methods transactional, controllers/repos not — IMPORTANT.

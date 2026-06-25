@@ -28,13 +28,14 @@ plugins {
 }
 
 dependencies {
-    // Pin to the current KoTest 6.x stable line. Verify the latest patch at
-    // https://github.com/kotest/kotest/releases at implementation time.
-    testImplementation("io.kotest:kotest-runner-junit5:6.1.10")
-    testImplementation("io.kotest:kotest-assertions-core:6.1.10")
-    testImplementation("io.kotest:kotest-property:6.1.10")
-    testImplementation("io.kotest.extensions:kotest-extensions-spring:1.3.0")
-    testImplementation("io.mockk:mockk:1.13.13")
+    // Versions are centralised in gradle/libs.versions.toml (see dependency-management.md
+    // §Backend version catalog). The Spring extension is io.kotest:kotest-extensions-spring —
+    // lockstep with the runner (≥ 6.2.0 for Spring 7 / Boot 4), NOT io.kotest.extensions:…:1.3.0.
+    testImplementation(libs.kotest.runner)
+    testImplementation(libs.kotest.assertions)
+    testImplementation(libs.kotest.property)
+    testImplementation(libs.kotest.spring)
+    testImplementation(libs.mockk)
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.junit.vintage", module = "junit-vintage-engine")
     }
@@ -53,7 +54,7 @@ KoTest 6 introduces a few intentional breaking changes from 5.x; webstack's Beha
 
 - **Coroutines**: `runTest` semantics aligned with kotlinx-coroutines-test 1.8+. Existing `runTest { ... }` blocks compile unchanged.
 - **Property-based testing**: `Arb` API is unchanged for the patterns webstack uses (`Arb.int(0, 100_000)`, `checkAll(...)`).
-- **Spring extension**: still imported as `io.kotest.extensions.spring.SpringExtension`. Confirm the version (`1.3.0` in the snippet above) is compatible with your KoTest patch — newer KoTest patches occasionally bump the minimum extension version.
+- **Spring extension**: the artifact is **`io.kotest:kotest-extensions-spring`**, versioned **in lockstep with the KoTest runner** (use the same version; pin ≥ 6.2.0 for Spring Framework 7 / Boot 4 support). The old standalone `io.kotest.extensions:kotest-extensions-spring:1.3.0` is archived and pulls Spring 5 — do **not** use it on Boot 4. The import path is unchanged: `io.kotest.extensions.spring.SpringExtension`.
 - **Assertion library**: `shouldBe`, `shouldNotBe`, `shouldThrow`, `assertSoftly`, `withClue` are stable. Only obscure assertions removed.
 
 Run `./gradlew test --rerun-tasks` after the bump; address any deprecation warnings.
@@ -211,6 +212,46 @@ class PayInvoiceUseCaseSpec : BehaviorSpec({
 ```
 
 Use `coEvery` and `coVerify` for `suspend` collaborators. Use `relaxed = true` when the mock has many irrelevant methods (publishers, loggers); use strict mocks for the system under test's primary collaborators so missing setups are caught.
+
+### Mocking a bean: prefer pure unit tests, use `@MockkBean` only in slices
+
+**Altitude matters.** The cheapest, fastest mocking is in a **pure-JVM unit test** — construct the application service directly with `mockk()` ports (as `PayInvoiceUseCaseSpec` above). No Spring context, no `@MockkBean`. This covers the bulk of behavior.
+
+Reach for **`@MockkBean`** (springmockk) only when you genuinely need a Spring context with one collaborator replaced — typically a **controller web slice**, where Spring wires the controller but its application service should be mocked:
+
+```kotlin
+import com.ninja_squad.springmockk.MockkBean
+import io.kotest.extensions.spring.SpringExtension
+import io.mockk.every
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.web.servlet.MockMvc
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class InvoiceControllerSpec : BehaviorSpec() {
+    @MockkBean private lateinit var payInvoice: PayInvoiceUseCase   // Spring bean → MockK mock
+    @Autowired private lateinit var mockMvc: MockMvc
+
+    init {
+        extension(SpringExtension)
+        given("a payable invoice") {
+            every { payInvoice.pay(any(), any()) } returns PayInvoiceResult.Paid(/* … */)
+            // … perform POST /api/invoices/{id}/pay, assert 200 + body
+        }
+    }
+}
+```
+
+(Use the `BehaviorSpec()` + `init { }` form, not the lambda-constructor form, so `@MockkBean` / `@Autowired` fields can live on the class.)
+
+**springmockk 5.x naming (Spring Boot 4)** — Boot 4 removed `@MockBean`/`@SpyBean`, so springmockk was rewritten onto Spring's Bean Override framework:
+
+- `@MockkBean` — unchanged.
+- `@SpykBean` → **`@MockkSpyBean`**.
+- `@MockkBean(classes = [...])` → `@MockkBean(types = [...])`.
+
+If you don't need a MockK mock specifically, Spring's own `@MockitoBean` works too (Mockito); webstack standardizes on MockK for Kotlin ergonomics (coroutines, `final`/`object` mocking).
 
 ## Spring integration
 

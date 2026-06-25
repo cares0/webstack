@@ -1,6 +1,6 @@
 {
   "name": "webstack",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fullstack web service harness for Claude Code — guides identity-driven design system, multi-repo scaffolding, contract-first API, parallel feature development with worktrees, and free-tier IaC (NextJS+ShadCN+Tailwind+FSD-lite / Spring+Kotlin+DDD+Modulith+KoTest / Vercel+Oracle+Supabase+OpenTofu).",
   "author": {
     "name": "YoungJun Kim",
